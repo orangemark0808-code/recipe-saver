@@ -405,6 +405,12 @@
     gap: 0.35rem;
   }
 
+  @media (max-width: 480px) {
+    .recipe-footer {
+      gap: 0.5rem;
+    }
+  }
+
   .recipe-date {
     font-size: 10px;
     color: #888780;
@@ -416,10 +422,12 @@
     border: none;
     color: #888780;
     cursor: pointer;
-    font-size: 14px;
-    padding: 0.2rem;
+    font-size: 16px;
+    padding: 0.3rem 0.4rem;
     transition: color 0.2s;
     flex-shrink: 0;
+    min-width: 30px;
+    text-align: center;
   }
 
   .edit-btn:hover {
