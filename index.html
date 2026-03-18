@@ -223,6 +223,18 @@
     color: #2c2c2a;
   }
 
+  @media (max-width: 480px) {
+    .tabs {
+      gap: 0.25rem;
+      margin-bottom: 1rem;
+    }
+
+    .tab-button {
+      padding: 0.6rem 0.8rem;
+      font-size: 12px;
+    }
+  }
+
   .recipes-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -625,7 +637,7 @@
     <div class="tabs" id="tabsContainer">
       <button class="tab-button active" onclick="filterRecipes('')">すべて</button>
       <button class="tab-button" onclick="filterRecipes('main')">メイン</button>
-      <button class="tab-button" onclick="filterRecipes('dessert')">お菓子</button>
+      <button class="tab-button" onclick="filterRecipes('dessert')">デザート</button>
       <button class="tab-button" onclick="filterRecipes('side')">副菜</button>
       <button class="tab-button" onclick="filterRecipes('soup')">スープ</button>
       <button class="tab-button" onclick="filterRecipes('salad')">サラダ</button>
