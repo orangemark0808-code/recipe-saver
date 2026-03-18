@@ -643,12 +643,12 @@
     </div>
 
     <div class="tabs" id="tabsContainer">
-      <button class="tab-button active" onclick="filterRecipes('')">すべて</button>
-      <button class="tab-button" onclick="filterRecipes('main')">メイン</button>
-      <button class="tab-button" onclick="filterRecipes('dessert')">デザート</button>
-      <button class="tab-button" onclick="filterRecipes('side')">副菜</button>
-      <button class="tab-button" onclick="filterRecipes('soup')">スープ</button>
-      <button class="tab-button" onclick="filterRecipes('salad')">サラダ</button>
+      <button class="tab-button active" onclick="filterRecipes('', this)">すべて</button>
+      <button class="tab-button" onclick="filterRecipes('main', this)">メイン</button>
+      <button class="tab-button" onclick="filterRecipes('dessert', this)">デザート</button>
+      <button class="tab-button" onclick="filterRecipes('side', this)">副菜</button>
+      <button class="tab-button" onclick="filterRecipes('soup', this)">スープ</button>
+      <button class="tab-button" onclick="filterRecipes('salad', this)">サラダ</button>
     </div>
 
     <div class="recipes-grid" id="recipesGrid">
@@ -706,30 +706,17 @@
   </div>
 </div>
 
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-const STORAGE_KEY = 'recipes_data_v6';
+const SUPABASE_URL = 'https://vwfzlcgfgffknpmselzy.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_0LpdSdGbLIcC0P5rkVXgpg_1SN3sR-p';
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
 let currentEditId = null;
-let currentImageData = null;
-let modalImageData = null;
-
-function loadRecipes() {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return stored ? JSON.parse(stored) : [];
-  } catch (e) {
-    console.error('データ読み込みエラー:', e);
-    return [];
-  }
-}
-
-function saveRecipesToStorage(recipes) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(recipes));
-  } catch (e) {
-    alert('データ保存に失敗しました。ストレージがいっぱいの可能性があります。');
-    console.error('保存エラー:', e);
-  }
-}
+let currentImageFile = null;
+let modalImageFile = null;
+let currentFilterCategory = '';
 
 function getCategoryLabel(category) {
   const labels = {
@@ -743,6 +730,49 @@ function getCategoryLabel(category) {
     'other': 'その他'
   };
   return labels[category] || category;
+}
+
+async function loadRecipes() {
+  const { data, error } = await supabaseClient
+    .from('recipes')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('データ読み込みエラー:', error);
+    alert('データの読み込みに失敗しました');
+    return [];
+  }
+
+  return data || [];
+}
+
+async function uploadImage(file) {
+  if (!file) return null;
+
+  const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+  const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+  const filePath = `public/${fileName}`;
+
+  const { error: uploadError } = await supabaseClient
+    .storage
+    .from('recipe-images')
+    .upload(filePath, file, {
+      cacheControl: '3600',
+      upsert: false
+    });
+
+  if (uploadError) {
+    console.error('画像アップロードエラー:', uploadError);
+    throw new Error('画像アップロードに失敗しました');
+  }
+
+  const { data } = supabaseClient
+    .storage
+    .from('recipe-images')
+    .getPublicUrl(filePath);
+
+  return data.publicUrl;
 }
 
 function handleDragOver(event) {
@@ -761,7 +791,7 @@ function handleDrop(event) {
   event.preventDefault();
   event.stopPropagation();
   document.getElementById('uploadArea').classList.remove('dragover');
-  
+
   const files = event.dataTransfer.files;
   if (files.length > 0) {
     handleImageFile(files[0]);
@@ -781,18 +811,15 @@ function handleImageFile(file) {
     return;
   }
 
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    currentImageData = e.target.result;
-    document.getElementById('previewImg').src = currentImageData;
-    document.getElementById('imagePreview').style.display = 'block';
-    document.getElementById('uploadArea').style.display = 'none';
-  };
-  reader.readAsDataURL(file);
+  currentImageFile = file;
+  const objectUrl = URL.createObjectURL(file);
+  document.getElementById('previewImg').src = objectUrl;
+  document.getElementById('imagePreview').style.display = 'block';
+  document.getElementById('uploadArea').style.display = 'none';
 }
 
 function clearImage() {
-  currentImageData = null;
+  currentImageFile = null;
   document.getElementById('imageInput').value = '';
   document.getElementById('imagePreview').style.display = 'none';
   document.getElementById('previewImg').src = '';
@@ -815,7 +842,7 @@ function handleModalDrop(event) {
   event.preventDefault();
   event.stopPropagation();
   document.getElementById('modalUploadArea').classList.remove('dragover');
-  
+
   const files = event.dataTransfer.files;
   if (files.length > 0) {
     handleModalImageFile(files[0]);
@@ -835,41 +862,56 @@ function handleModalImageFile(file) {
     return;
   }
 
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    modalImageData = e.target.result;
-    const preview = document.getElementById('modalThumbnail');
-    preview.innerHTML = `<img src="${modalImageData}" alt="thumbnail">`;
-  };
-  reader.readAsDataURL(file);
+  modalImageFile = file;
+  const objectUrl = URL.createObjectURL(file);
+  const preview = document.getElementById('modalThumbnail');
+  preview.innerHTML = `<img src="${objectUrl}" alt="thumbnail">`;
 }
 
-function saveRecipe() {
+async function saveRecipe() {
   const url = document.getElementById('postUrl').value.trim();
   const memo = document.getElementById('memo').value.trim();
   const category = document.getElementById('category').value;
-  
-  if (!url && !currentImageData) {
+
+  if (!url && !currentImageFile) {
     alert('投稿URLまたは画像をアップロードしてください');
     return;
   }
 
-  const recipe = {
-    id: Date.now(),
-    url: url,
-    category: category,
-    memo: memo,
-    thumbnail: currentImageData,
-    savedDate: new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' })
-  };
+  try {
+    let thumbnailUrl = null;
 
-  const recipes = loadRecipes();
-  recipes.unshift(recipe);
-  saveRecipesToStorage(recipes);
+    if (currentImageFile) {
+      thumbnailUrl = await uploadImage(currentImageFile);
+    }
 
-  clearForm();
-  renderRecipes();
-  alert('✅ レシピを保存しました！');
+    const { error } = await supabaseClient
+      .from('recipes')
+      .insert([{
+        post_url: url,
+        category: category,
+        memo: memo,
+        thumbnail_url: thumbnailUrl,
+        saved_date: new Date().toLocaleDateString('ja-JP', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit'
+        })
+      }]);
+
+    if (error) {
+      console.error('保存エラー:', error);
+      alert('保存に失敗しました');
+      return;
+    }
+
+    clearForm();
+    await renderRecipes(currentFilterCategory);
+    alert('✅ レシピを保存しました！');
+  } catch (err) {
+    console.error(err);
+    alert(err.message || '保存中にエラーが発生しました');
+  }
 }
 
 function clearForm() {
@@ -880,43 +922,55 @@ function clearForm() {
   document.getElementById('postUrl').focus();
 }
 
-function deleteRecipe(id) {
-  if (confirm('このレシピを削除しますか？')) {
-    let recipes = loadRecipes();
-    recipes = recipes.filter(r => r.id !== id);
-    saveRecipesToStorage(recipes);
-    renderRecipes();
+async function deleteRecipe(id, event) {
+  if (event) event.stopPropagation();
+  if (!confirm('このレシピを削除しますか？')) return;
+
+  const { error } = await supabaseClient
+    .from('recipes')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('削除エラー:', error);
+    alert('削除に失敗しました');
+    return;
   }
+
+  await renderRecipes(currentFilterCategory);
 }
 
-function filterRecipes(category) {
-  const recipes = loadRecipes();
-  const filtered = category ? recipes.filter(r => r.category === category) : recipes;
-  
+async function filterRecipes(category, clickedButton = null) {
+  currentFilterCategory = category;
+
   document.querySelectorAll('.tab-button').forEach(btn => {
     btn.classList.remove('active');
   });
-  event.target.classList.add('active');
-  
-  renderRecipes(filtered);
+
+  if (clickedButton) {
+    clickedButton.classList.add('active');
+  }
+
+  await renderRecipes(category);
 }
 
-function openEditModal(id, event) {
+async function openEditModal(id, event) {
   event.stopPropagation();
-  const recipes = loadRecipes();
+
+  const recipes = await loadRecipes();
   const recipe = recipes.find(r => r.id === id);
   if (!recipe) return;
 
   currentEditId = id;
-  modalImageData = null;
-  document.getElementById('modalMemo').value = recipe.memo;
+  modalImageFile = null;
+  document.getElementById('modalMemo').value = recipe.memo || '';
   document.getElementById('modalCategory').value = recipe.category || '';
-  
+
   const preview = document.getElementById('modalThumbnail');
-  if (recipe.thumbnail) {
-    preview.innerHTML = `<img src="${recipe.thumbnail}" alt="thumbnail">`;
+  if (recipe.thumbnail_url) {
+    preview.innerHTML = `<img src="${recipe.thumbnail_url}" alt="thumbnail">`;
   } else {
-    preview.innerHTML = '🍽️';
+    preview.innerHTML = '<span style="font-size: 48px;">🍽️</span>';
   }
 
   document.getElementById('editModal').classList.add('active');
@@ -925,25 +979,41 @@ function openEditModal(id, event) {
 function closeModal() {
   document.getElementById('editModal').classList.remove('active');
   currentEditId = null;
-  modalImageData = null;
+  modalImageFile = null;
 }
 
-function saveEditedMemo() {
+async function saveEditedMemo() {
   const memo = document.getElementById('modalMemo').value.trim();
   const category = document.getElementById('modalCategory').value;
-  let recipes = loadRecipes();
-  const recipeIndex = recipes.findIndex(r => r.id === currentEditId);
-  
-  if (recipeIndex !== -1) {
-    recipes[recipeIndex].memo = memo;
-    recipes[recipeIndex].category = category;
-    if (modalImageData) {
-      recipes[recipeIndex].thumbnail = modalImageData;
+
+  try {
+    const updateData = {
+      memo: memo,
+      category: category
+    };
+
+    if (modalImageFile) {
+      const thumbnailUrl = await uploadImage(modalImageFile);
+      updateData.thumbnail_url = thumbnailUrl;
     }
-    saveRecipesToStorage(recipes);
-    renderRecipes();
+
+    const { error } = await supabaseClient
+      .from('recipes')
+      .update(updateData)
+      .eq('id', currentEditId);
+
+    if (error) {
+      console.error('更新エラー:', error);
+      alert('更新に失敗しました');
+      return;
+    }
+
     closeModal();
+    await renderRecipes(currentFilterCategory);
     alert('✅ レシピを更新しました！');
+  } catch (err) {
+    console.error(err);
+    alert(err.message || '更新中にエラーが発生しました');
   }
 }
 
@@ -954,8 +1024,13 @@ function openLink(url, event) {
   }
 }
 
-function renderRecipes(recipesToShow = null) {
-  const recipes = recipesToShow || loadRecipes();
+async function renderRecipes(category = '') {
+  let recipes = await loadRecipes();
+
+  if (category) {
+    recipes = recipes.filter(r => r.category === category);
+  }
+
   const grid = document.getElementById('recipesGrid');
   const count = document.getElementById('recipeCount');
 
@@ -972,15 +1047,15 @@ function renderRecipes(recipesToShow = null) {
   }
 
   grid.innerHTML = recipes.map(recipe => `
-    <div class="recipe-card ${recipe.url ? 'clickable' : ''}" ${recipe.url ? `onclick="openLink('${recipe.url.replace(/'/g, "\\'")}', event)"` : ''}>
-      <div class="recipe-image-wrapper" ${recipe.url ? `title="クリックで投稿を開く"` : ''}>
-        ${recipe.thumbnail ? `
-          <img src="${recipe.thumbnail}" alt="recipe" onerror="this.parentElement.classList.add('no-image'); this.parentElement.innerHTML='🍽️';">
+    <div class="recipe-card ${recipe.post_url ? 'clickable' : ''}" ${recipe.post_url ? `onclick="openLink('${recipe.post_url.replace(/'/g, "\\'")}', event)"` : ''}>
+      <div class="recipe-image-wrapper" ${recipe.post_url ? `title="クリックで投稿を開く"` : ''}>
+        ${recipe.thumbnail_url ? `
+          <img src="${recipe.thumbnail_url}" alt="recipe" onerror="this.parentElement.classList.add('no-image'); this.parentElement.innerHTML='🍽️';">
         ` : `
           <div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; font-size: 40px;">🍽️</div>
         `}
       </div>
-      
+
       <div class="recipe-content">
         ${recipe.category ? `<div class="recipe-category">${getCategoryLabel(recipe.category)}</div>` : ''}
         <div class="recipe-memo ${recipe.memo ? '' : 'empty'}">
@@ -988,9 +1063,9 @@ function renderRecipes(recipesToShow = null) {
         </div>
 
         <div class="recipe-footer">
-          <div class="recipe-date">📅 ${recipe.savedDate}</div>
+          <div class="recipe-date">📅 ${recipe.saved_date || ''}</div>
           <button class="edit-btn" onclick="openEditModal(${recipe.id}, event)" title="編集">✏️</button>
-          <button class="delete-btn" onclick="deleteRecipe(${recipe.id})" title="削除">🗑️</button>
+          <button class="delete-btn" onclick="deleteRecipe(${recipe.id}, event)" title="削除">🗑️</button>
         </div>
       </div>
     </div>
@@ -1003,7 +1078,9 @@ document.addEventListener('keydown', function(e) {
   }
 });
 
-renderRecipes();
+document.addEventListener('DOMContentLoaded', async () => {
+  await renderRecipes();
+});
 </script>
 
 </body>
