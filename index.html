@@ -587,16 +587,16 @@
 
 <div class="container">
   <div class="header">
-    <h1>🍳 レシピセーバー</h1>
-    <p>Instagramのレシピ投稿をスクリーンショットで保存・管理</p>
+    <h1>🍳 インスタセーバー</h1>
+    <p>Instagramのお気に入り投稿のURLを保存・管理</p>
   </div>
 
   <div class="info-message">
-    💡 投稿のスクリーンショット、またはURLを貼り付けて保存。カテゴリーで簡単検索！
+    💡 投稿のURLを貼り付けて保存。カテゴリーで簡単検索！
   </div>
 
   <div class="input-section">
-    <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 1.5rem; color: #2c2c2a;">新しいレシピを追加</h3>
+    <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 1.5rem; color: #2c2c2a;">新しいお気に入りを追加</h3>
     
     <div class="input-group">
       <label>Instagram投稿URL（任意）</label>
@@ -754,6 +754,18 @@ function getCategoryLabel(category) {
   return labels[category] || category;
 }
 
+function normalizeInstagramUrl(rawUrl) {
+  const value = (rawUrl || '').trim();
+  if (!value) return '';
+
+  try {
+    const url = new URL(value);
+    return `${url.origin}${url.pathname}`;
+  } catch {
+    return value;
+  }
+}
+
 async function loadRecipes() {
   const { data, error } = await supabaseClient
     .from('recipes')
@@ -891,7 +903,7 @@ function handleModalImageFile(file) {
 }
 
 async function saveRecipe() {
-  const url = document.getElementById('postUrl').value.trim();
+  const url = normalizeInstagramUrl(document.getElementById('postUrl').value);
   const memo = document.getElementById('memo').value.trim();
   const category = document.getElementById('category').value;
 
