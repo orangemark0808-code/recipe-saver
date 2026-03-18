@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#D4764E">
-<meta name="description" content="Instagramのレシピ投稿をスクリーンショットで保存・管理">
-<title>レシピセーバー - Instagram投稿管理</title>
+<meta name="description" content="Instagramの投稿をスクリーンショットで保存・管理">
+<title>インスタセーバー - Instagram投稿管理</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   
@@ -567,6 +567,15 @@
     background: #f5ede3;
   }
 
+  .site-footer {
+    text-align: center;
+    color: #888780;
+    font-size: 12px;
+    margin-top: 2.5rem;
+    padding: 1.25rem 0 0.5rem;
+  }
+
+
   .modal-upload-area.dragover {
     border-color: #D4764E;
     background: #f0e6d8;
@@ -620,14 +629,17 @@
         <option value="bread">パン</option>
         <option value="soup">スープ・汁物</option>
         <option value="salad">サラダ</option>
+        <option value="kickboxing">キックボクシング</option>
+        <option value="ai">AI</option>
+        <option value="beauty">美容</option>
         <option value="drink">ドリンク</option>
         <option value="other">その他</option>
       </select>
     </div>
 
     <div class="input-group">
-      <label>メモ / 材料</label>
-      <textarea id="memo" placeholder="材料：卵、砂糖、バター...&#10;作り方：1.〇〇&#10;      2.△△&#10;備考：冷蔵庫で1時間冷やす"></textarea>
+      <label>メモ</label>
+      <textarea id="memo" placeholder="メモを入力してください"></textarea>
     </div>
 
     <div class="button-group">
@@ -638,7 +650,7 @@
 
   <div class="recipes-section">
     <div class="recipes-header">
-      <h2>保存済みレシピ</h2>
+      <h2>保存済み投稿</h2>
       <div class="recipe-count" id="recipeCount">0件</div>
     </div>
 
@@ -649,6 +661,9 @@
       <button class="tab-button" onclick="filterRecipes('side', this)">副菜</button>
       <button class="tab-button" onclick="filterRecipes('soup', this)">スープ</button>
       <button class="tab-button" onclick="filterRecipes('salad', this)">サラダ</button>
+      <button class="tab-button" onclick="filterRecipes('kickboxing', this)">キックボクシング</button>
+      <button class="tab-button" onclick="filterRecipes('ai', this)">AI</button>
+      <button class="tab-button" onclick="filterRecipes('beauty', this)">美容</button>
     </div>
 
     <div class="recipes-grid" id="recipesGrid">
@@ -689,13 +704,16 @@
         <option value="bread">パン</option>
         <option value="soup">スープ・汁物</option>
         <option value="salad">サラダ</option>
+        <option value="kickboxing">キックボクシング</option>
+        <option value="ai">AI</option>
+        <option value="beauty">美容</option>
         <option value="drink">ドリンク</option>
         <option value="other">その他</option>
       </select>
     </div>
 
     <div style="margin-bottom: 1.5rem;">
-      <label style="display: block; font-size: 14px; font-weight: 600; margin-bottom: 0.6rem; color: #2c2c2a;">メモ / 材料</label>
+      <label style="display: block; font-size: 14px; font-weight: 600; margin-bottom: 0.6rem; color: #2c2c2a;">メモ</label>
       <textarea id="modalMemo" style="width: 100%; padding: 0.9rem; border: 1px solid #ddd; border-radius: 8px; font-family: inherit; min-height: 150px; font-size: 14px; background: #fafaf8;"></textarea>
     </div>
 
@@ -704,6 +722,7 @@
       <button style="flex: 1;" onclick="closeModal()">キャンセル</button>
     </div>
   </div>
+  <footer class="site-footer">© 2026 インスタセーバー. All rights reserved.</footer>
 </div>
 
 
@@ -726,6 +745,9 @@ function getCategoryLabel(category) {
     'bread': 'パン',
     'soup': 'スープ・汁物',
     'salad': 'サラダ',
+    'kickboxing': 'キックボクシング',
+    'ai': 'AI',
+    'beauty': '美容',
     'drink': 'ドリンク',
     'other': 'その他'
   };
@@ -1064,8 +1086,8 @@ async function renderRecipes(category = '') {
 
         <div class="recipe-footer">
           <div class="recipe-date">📅 ${recipe.saved_date || ''}</div>
-          <button class="edit-btn" onclick="openEditModal(${recipe.id}, event)" title="編集">✏️</button>
           <button class="delete-btn" onclick="deleteRecipe(${recipe.id}, event)" title="削除">🗑️</button>
+          <button class="edit-btn" onclick="openEditModal(${recipe.id}, event)" title="編集">✏️</button>
         </div>
       </div>
     </div>
