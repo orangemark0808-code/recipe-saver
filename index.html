@@ -529,6 +529,29 @@
     max-height: 200px;
     border-radius: 8px;
   }
+
+  .modal-upload-area {
+    width: 100%;
+    border: 2px dashed #ddd;
+    border-radius: 8px;
+    padding: 1.5rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    background: #fafaf8;
+    margin-bottom: 1rem;
+  }
+
+  .modal-upload-area:hover {
+    border-color: #D4764E;
+    background: #f5ede3;
+  }
+
+  .modal-upload-area.dragover {
+    border-color: #D4764E;
+    background: #f0e6d8;
+    box-shadow: 0 0 0 3px rgba(212, 118, 78, 0.1);
+  }
 </style>
 </head>
 <body>
@@ -540,7 +563,7 @@
   </div>
 
   <div class="info-message">
-    💡 投稿のスクリーンショットをドラッグ&ドロップで追加。URLは投稿へのリンク用。カテゴリーで簡単検索！
+    💡 投稿のスクリーンショット、またはURLを貼り付けて保存。カテゴリーで簡単検索！
   </div>
 
   <div class="input-section">
@@ -552,7 +575,7 @@
     </div>
 
     <div class="input-group">
-      <label>スクリーンショット画像</label>
+      <label>スクリーンショット画像（任意）</label>
       <div id="uploadArea" class="upload-area" ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" onclick="document.getElementById('imageInput').click()">
         <div class="upload-area-content">
           <div style="font-size: 32px; margin-bottom: 0.5rem;">📸</div>
@@ -621,10 +644,19 @@
 <div class="modal" id="editModal">
   <div class="modal-content">
     <button class="modal-close" onclick="closeModal()">✕</button>
-    <div class="modal-header">メモを編集</div>
+    <div class="modal-header">レシピを編集</div>
     
     <div class="thumbnail-preview" id="modalThumbnail">
       <span style="font-size: 48px;">🍽️</span>
+    </div>
+
+    <div style="margin-bottom: 1.5rem;">
+      <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 0.6rem; color: #2c2c2a;">画像を追加・変更（任意）</label>
+      <div id="modalUploadArea" class="modal-upload-area" ondrop="handleModalDrop(event)" ondragover="handleModalDragOver(event)" ondragleave="handleModalDragLeave(event)" onclick="document.getElementById('modalImageInput').click()">
+        <div style="font-size: 24px; margin-bottom: 0.3rem;">📸</div>
+        <div style="font-size: 12px; color: #2c2c2a;">ドラッグ&ドロップまたはクリック</div>
+      </div>
+      <input type="file" id="modalImageInput" style="display: none;" accept="image/*" onchange="handleModalImageSelect(event)">
     </div>
 
     <div style="margin-bottom: 1.5rem;">
@@ -655,9 +687,10 @@
 </div>
 
 <script>
-const STORAGE_KEY = 'recipes_data_v6';
+const STORAGE_KEY = 'recipes_data_v7';
 let currentEditId = null;
 let currentImageData = null;
+let modalImageData = null;
 
 function loadRecipes() {
   try {
@@ -746,13 +779,58 @@ function clearImage() {
   document.getElementById('uploadArea').style.display = 'block';
 }
 
+function handleModalDragOver(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  document.getElementById('modalUploadArea').classList.add('dragover');
+}
+
+function handleModalDragLeave(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  document.getElementById('modalUploadArea').classList.remove('dragover');
+}
+
+function handleModalDrop(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  document.getElementById('modalUploadArea').classList.remove('dragover');
+  
+  const files = event.dataTransfer.files;
+  if (files.length > 0) {
+    handleModalImageFile(files[0]);
+  }
+}
+
+function handleModalImageSelect(event) {
+  const files = event.target.files;
+  if (files.length > 0) {
+    handleModalImageFile(files[0]);
+  }
+}
+
+function handleModalImageFile(file) {
+  if (!file.type.startsWith('image/')) {
+    alert('画像ファイルを選択してください');
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    modalImageData = e.target.result;
+    const preview = document.getElementById('modalThumbnail');
+    preview.innerHTML = `<img src="${modalImageData}" alt="thumbnail">`;
+  };
+  reader.readAsDataURL(file);
+}
+
 function saveRecipe() {
   const url = document.getElementById('postUrl').value.trim();
   const memo = document.getElementById('memo').value.trim();
   const category = document.getElementById('category').value;
   
-  if (!currentImageData) {
-    alert('画像をアップロードしてください');
+  if (!url && !currentImageData) {
+    alert('投稿URLまたは画像をアップロードしてください');
     return;
   }
 
@@ -810,6 +888,7 @@ function openEditModal(id, event) {
   if (!recipe) return;
 
   currentEditId = id;
+  modalImageData = null;
   document.getElementById('modalMemo').value = recipe.memo;
   document.getElementById('modalCategory').value = recipe.category || '';
   
@@ -826,6 +905,7 @@ function openEditModal(id, event) {
 function closeModal() {
   document.getElementById('editModal').classList.remove('active');
   currentEditId = null;
+  modalImageData = null;
 }
 
 function saveEditedMemo() {
@@ -837,10 +917,13 @@ function saveEditedMemo() {
   if (recipeIndex !== -1) {
     recipes[recipeIndex].memo = memo;
     recipes[recipeIndex].category = category;
+    if (modalImageData) {
+      recipes[recipeIndex].thumbnail = modalImageData;
+    }
     saveRecipesToStorage(recipes);
     renderRecipes();
     closeModal();
-    alert('✅ メモを更新しました！');
+    alert('✅ レシピを更新しました！');
   }
 }
 
@@ -886,7 +969,7 @@ function renderRecipes(recipesToShow = null) {
 
         <div class="recipe-footer">
           <div class="recipe-date">📅 ${recipe.savedDate}</div>
-          <button class="edit-btn" onclick="openEditModal(${recipe.id}, event)" title="メモを編集">✏️</button>
+          <button class="edit-btn" onclick="openEditModal(${recipe.id}, event)" title="編集">✏️</button>
           <button class="delete-btn" onclick="deleteRecipe(${recipe.id})" title="削除">🗑️</button>
         </div>
       </div>
@@ -894,14 +977,12 @@ function renderRecipes(recipesToShow = null) {
   `).join('');
 }
 
-// ESCキーでモーダルを閉じる
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
     closeModal();
   }
 });
 
-// 初期表示
 renderRecipes();
 </script>
 
