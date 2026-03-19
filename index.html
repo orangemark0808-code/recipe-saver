@@ -484,7 +484,7 @@
     background: white;
     border-radius: 18px;
     padding: 1.5rem;
-    width: min(720px, 100%);
+    width: min(860px, 100%);
     max-height: min(92vh, 100dvh - 24px);
     overflow-y: auto;
     overscroll-behavior: contain;
@@ -536,39 +536,56 @@
       padding: 0;
       align-items: stretch;
       justify-content: stretch;
+      background: rgba(0, 0, 0, 0.45);
     }
 
     .modal-content {
-      width: 100%;
+      width: min(100vw, 100%);
       max-width: none;
       min-height: 100dvh;
       max-height: 100dvh;
       border-radius: 0;
-      padding: calc(16px + env(safe-area-inset-top)) 16px calc(20px + env(safe-area-inset-bottom)) 16px;
+      padding: calc(14px + env(safe-area-inset-top)) 12px calc(18px + env(safe-area-inset-bottom)) 12px;
       box-shadow: none;
     }
 
     .modal-header {
       font-size: 24px;
-      margin-bottom: 1rem;
-      padding-right: 3rem;
+      margin-bottom: 0.85rem;
+      padding-right: 0;
     }
 
     .modal-close {
-      position: fixed;
-      top: calc(10px + env(safe-area-inset-top));
-      right: calc(12px + env(safe-area-inset-right));
-      background: rgba(255,255,255,0.96);
+      display: none;
     }
 
     .thumbnail-preview {
-      height: min(42vh, 360px);
+      width: 100%;
+      height: min(44vh, 420px);
       border-radius: 12px;
+      margin-bottom: 1rem;
+    }
+
+    .modal-upload-area {
+      width: 100%;
+      padding: 1.25rem;
     }
 
     #modalMemo {
-      min-height: 32vh !important;
+      min-height: 36vh !important;
       font-size: 16px !important;
+      line-height: 1.65;
+    }
+  }
+
+  @media (max-width: 420px) {
+    .modal-content {
+      padding-left: 10px;
+      padding-right: 10px;
+    }
+
+    .thumbnail-preview {
+      height: min(40vh, 360px);
     }
   }
 
@@ -626,6 +643,16 @@
     display: flex;
     gap: 0.75rem;
     margin-top: 1.5rem;
+  }
+
+  #modalCategory,
+  #modalMemo,
+  #modalUploadArea {
+    width: 100%;
+  }
+
+  #modalMemo {
+    min-height: 220px;
   }
 
   @media (max-width: 768px) {
@@ -793,7 +820,7 @@
 
     <div class="modal-actions">
       <button class="primary" style="flex: 1;" onclick="saveEditedMemo()">保存</button>
-      <button style="flex: 1;" onclick="closeModal()">キャンセル</button>
+      <button style="flex: 1;" onclick="closeModal()">キャンセル / 閉じる</button>
     </div>
   </div>
   <footer class="site-footer">© 2026 インスタセーバー. All rights reserved.</footer>
