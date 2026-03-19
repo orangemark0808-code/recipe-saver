@@ -19,7 +19,7 @@
 
   .container {
     max-width: 1000px;
-    margin: 0 auto;
+    margin: 0 auto;Q
     padding: 1.5rem;
   }
 
@@ -366,7 +366,7 @@
     box-shadow: 0 4px 12px rgba(212, 118, 78, 0.12);
   }
 
-  .recipe-card.clickable {
+  .recipe-image-link {
     cursor: pointer;
   }
 
@@ -470,6 +470,26 @@
     display: flex;
     flex-direction: column;
   }
+
+  .recipe-content {
+    cursor: default;
+  }
+
+  .recipe-content * {
+    position: relative;
+    z-index: 2;
+  }
+
+  .recipe-edit-zone {
+    cursor: pointer;
+  }
+
+  .recipe-edit-zone:hover .recipe-memo,
+  .recipe-edit-zone:hover .recipe-category {
+    border-color: #e3c2b0;
+    background: #fcfaf7;
+  }
+
 
   .recipe-category {
     display: inline-block;
