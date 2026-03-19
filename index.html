@@ -748,11 +748,6 @@
         <option value="drink">ドリンク</option>
         <option value="other">その他</option>
       </select>
-      <div class="category-manage">
-        <input type="text" id="newCategoryInput" placeholder="新しいカテゴリ名を入力">
-        <button type="button" onclick="addCustomCategory()">＋ カテゴリ追加</button>
-      </div>
-      <div class="category-hint">追加したカテゴリはこのブラウザ内に保存され、次回以降も使えます。</div>
     </div>
 
     <div class="input-group">
@@ -818,10 +813,6 @@
         <option value="drink">ドリンク</option>
         <option value="other">その他</option>
       </select>
-      <div class="category-manage">
-        <input type="text" id="modalNewCategoryInput" placeholder="新しいカテゴリ名を入力">
-        <button type="button" onclick="addCustomCategory(true)">＋ カテゴリ追加</button>
-      </div>
     </div>
 
     <div style="margin-bottom: 1.5rem;">
@@ -860,17 +851,11 @@ function getBuiltInCategories() {
 }
 
 function loadCustomCategories() {
-  try {
-    const raw = localStorage.getItem(CUSTOM_CATEGORIES_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
+  return [];
 }
 
 function saveCustomCategories(categories) {
-  localStorage.setItem(CUSTOM_CATEGORIES_KEY, JSON.stringify(categories));
+  return;
 }
 
 function slugifyCategoryLabel(label) {
@@ -915,44 +900,7 @@ function refreshCategorySelects(selectedMain = null, selectedModal = null) {
 }
 
 function addCustomCategory(isModal = false) {
-  const input = document.getElementById(isModal ? 'modalNewCategoryInput' : 'newCategoryInput');
-  if (!input) return;
-
-  const label = input.value.trim();
-  if (!label) {
-    alert('カテゴリ名を入力してください');
-    return;
-  }
-
-  const builtIn = getBuiltInCategories();
-  const custom = loadCustomCategories();
-  const normalized = label.toLowerCase();
-
-  const duplicate = [...builtIn, ...custom].some(cat => cat.label.toLowerCase() === normalized);
-  if (duplicate) {
-    alert('同じ名前のカテゴリがすでにあります');
-    return;
-  }
-
-  const newCategory = {
-    value: slugifyCategoryLabel(label),
-    label
-  };
-
-  custom.push(newCategory);
-  saveCustomCategories(custom);
-  refreshCategorySelects(
-    isModal ? document.getElementById('category')?.value ?? '' : newCategory.value,
-    isModal ? newCategory.value : document.getElementById('modalCategory')?.value ?? ''
-  );
-
-  if (isModal) {
-    document.getElementById('modalCategory').value = newCategory.value;
-  } else {
-    document.getElementById('category').value = newCategory.value;
-  }
-
-  input.value = '';
+  return;
 }
 
 function renderCategoryTabs() {
