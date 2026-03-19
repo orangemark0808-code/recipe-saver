@@ -1392,25 +1392,14 @@ async function renderRecipes(category = '') {
 }
 
 function createPlaceholderCardHtml(encodedRecipe) {
-  let recipe = {};
-  try {
-    recipe = JSON.parse(decodeURIComponent(encodedRecipe));
-  } catch {}
-
-  const title = escapeHtml(getDisplayTitle(recipe));
-  const domain = escapeHtml(getDomainFromUrl(recipe.post_url || '') || 'instagram.com');
-  const sub = recipe.post_url ? '画像がなくてもURLからすぐ開けます' : 'URL未登録';
-  const icon = '🔖';
-
   return `
     <div class="placeholder-card">
       <div class="placeholder-top">
-        <span class="placeholder-icon">${icon}</span>
+        <span class="placeholder-icon">📎</span>
         <span>Instagram</span>
       </div>
-      <div class="placeholder-title">${title}</div>
-      <div class="placeholder-domain">${domain}</div>
-      <div class="placeholder-sub">${sub}</div>
+      <div class="placeholder-domain">画像がなくてもURLから開けます</div>
+      <div class="placeholder-sub">タップして投稿を表示</div>
     </div>
   `;
 }
