@@ -723,8 +723,14 @@
   }
 
   .thumbnail-preview.no-image {
-    font-size: 48px;
-    color: #D4764E;
+    background: linear-gradient(135deg, #f3efe9, #e9e4dc);
+    border: 1px solid #f0e6dd;
+    font-size: initial;
+    color: inherit;
+  }
+
+  .thumbnail-preview.no-image .placeholder-card {
+    min-height: auto;
   }
 
   #imagePreview {
@@ -896,8 +902,8 @@
     <button class="modal-close" onclick="closeModal()">✕</button>
     <div class="modal-header">投稿を編集</div>
     
-    <div class="thumbnail-preview" id="modalThumbnail">
-      <span style="font-size: 48px;">🍽️</span>
+    <div class="thumbnail-preview no-image" id="modalThumbnail">
+      <div class="placeholder-card"><div class="no-image-logo">NO IMAGE</div></div>
     </div>
 
     <div style="margin-bottom: 1.5rem;">
@@ -1323,9 +1329,11 @@ async function openEditModal(id, event) {
 
   const preview = document.getElementById('modalThumbnail');
   if (recipe.thumbnail_url) {
+    preview.classList.remove('no-image');
     preview.innerHTML = `<img src="${recipe.thumbnail_url}" alt="thumbnail">`;
   } else {
-    preview.innerHTML = '<span style="font-size: 48px;">🍽️</span>';
+    preview.classList.add('no-image');
+    preview.innerHTML = '<div class="placeholder-card"><div class="no-image-logo">NO IMAGE</div></div>';
   }
 
   document.getElementById('editModal').classList.add('active');
