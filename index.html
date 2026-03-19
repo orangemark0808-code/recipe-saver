@@ -468,15 +468,12 @@
   .modal {
     display: none;
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
+    inset: 0;
+    background: rgba(0, 0, 0, 0.58);
     z-index: 1000;
     align-items: center;
     justify-content: center;
-    padding: 1rem;
+    padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
   }
 
   .modal.active {
@@ -485,36 +482,94 @@
 
   .modal-content {
     background: white;
-    border-radius: 12px;
-    padding: 2rem;
-    max-width: 500px;
-    width: 100%;
-    max-height: 90vh;
+    border-radius: 18px;
+    padding: 1.5rem;
+    width: min(720px, 100%);
+    max-height: min(92vh, 100dvh - 24px);
     overflow-y: auto;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.22);
     position: relative;
   }
 
   .modal-header {
-    font-size: 18px;
+    font-size: 20px;
     font-weight: 700;
-    margin-bottom: 1.5rem;
+    margin-bottom: 1.25rem;
     color: #2c2c2a;
+    padding-right: 2.5rem;
+    position: sticky;
+    top: 0;
+    background: white;
+    z-index: 2;
   }
 
   .modal-close {
-    position: absolute;
-    top: 1rem;
-    right: 1rem;
-    background: none;
-    border: none;
+    position: sticky;
+    top: 0;
+    float: right;
+    margin-left: auto;
+    margin-top: -0.25rem;
+    background: #fff;
+    border: 1px solid #e6ddd6;
+    border-radius: 999px;
+    width: 42px;
+    height: 42px;
+    min-width: 42px;
     font-size: 24px;
     color: #888780;
     cursor: pointer;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .modal-close:hover {
     color: #2c2c2a;
+    background: #faf7f4;
+  }
+
+  @media (max-width: 768px) {
+    .modal {
+      padding: 0;
+      align-items: stretch;
+      justify-content: stretch;
+    }
+
+    .modal-content {
+      width: 100%;
+      max-width: none;
+      min-height: 100dvh;
+      max-height: 100dvh;
+      border-radius: 0;
+      padding: calc(16px + env(safe-area-inset-top)) 16px calc(20px + env(safe-area-inset-bottom)) 16px;
+      box-shadow: none;
+    }
+
+    .modal-header {
+      font-size: 24px;
+      margin-bottom: 1rem;
+      padding-right: 3rem;
+    }
+
+    .modal-close {
+      position: fixed;
+      top: calc(10px + env(safe-area-inset-top));
+      right: calc(12px + env(safe-area-inset-right));
+      background: rgba(255,255,255,0.96);
+    }
+
+    .thumbnail-preview {
+      height: min(42vh, 360px);
+      border-radius: 12px;
+    }
+
+    #modalMemo {
+      min-height: 32vh !important;
+      font-size: 16px !important;
+    }
   }
 
   .thumbnail-preview {
@@ -565,6 +620,26 @@
   .modal-upload-area:hover {
     border-color: #D4764E;
     background: #f5ede3;
+  }
+
+  .modal-actions {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+  }
+
+  @media (max-width: 768px) {
+    .modal-actions {
+      flex-direction: column;
+      position: sticky;
+      bottom: calc(-1 * env(safe-area-inset-bottom));
+      background: linear-gradient(to top, rgba(255,255,255,1), rgba(255,255,255,0.96));
+      padding-top: 0.75rem;
+    }
+
+    .modal-actions button {
+      min-width: 100%;
+    }
   }
 
   .site-footer {
@@ -635,6 +710,11 @@
         <option value="drink">ドリンク</option>
         <option value="other">その他</option>
       </select>
+      <div class="category-manage">
+        <input type="text" id="newCategoryInput" placeholder="新しいカテゴリ名を入力">
+        <button type="button" onclick="addCustomCategory()">＋ カテゴリ追加</button>
+      </div>
+      <div class="category-hint">追加したカテゴリはこのブラウザ内に保存され、次回以降も使えます。</div>
     </div>
 
     <div class="input-group">
@@ -654,17 +734,7 @@
       <div class="recipe-count" id="recipeCount">0件</div>
     </div>
 
-    <div class="tabs" id="tabsContainer">
-      <button class="tab-button active" onclick="filterRecipes('', this)">すべて</button>
-      <button class="tab-button" onclick="filterRecipes('main', this)">メイン</button>
-      <button class="tab-button" onclick="filterRecipes('dessert', this)">デザート</button>
-      <button class="tab-button" onclick="filterRecipes('side', this)">副菜</button>
-      <button class="tab-button" onclick="filterRecipes('soup', this)">スープ</button>
-      <button class="tab-button" onclick="filterRecipes('salad', this)">サラダ</button>
-      <button class="tab-button" onclick="filterRecipes('kickboxing', this)">キックボクシング</button>
-      <button class="tab-button" onclick="filterRecipes('ai', this)">AI</button>
-      <button class="tab-button" onclick="filterRecipes('beauty', this)">美容</button>
-    </div>
+    <div class="tabs" id="tabsContainer"></div>
 
     <div class="recipes-grid" id="recipesGrid">
       <div class="empty-state">
@@ -679,7 +749,7 @@
 <div class="modal" id="editModal">
   <div class="modal-content">
     <button class="modal-close" onclick="closeModal()">✕</button>
-    <div class="modal-header">レシピを編集</div>
+    <div class="modal-header">投稿を編集</div>
     
     <div class="thumbnail-preview" id="modalThumbnail">
       <span style="font-size: 48px;">🍽️</span>
@@ -710,6 +780,10 @@
         <option value="drink">ドリンク</option>
         <option value="other">その他</option>
       </select>
+      <div class="category-manage">
+        <input type="text" id="modalNewCategoryInput" placeholder="新しいカテゴリ名を入力">
+        <button type="button" onclick="addCustomCategory(true)">＋ カテゴリ追加</button>
+      </div>
     </div>
 
     <div style="margin-bottom: 1.5rem;">
@@ -717,7 +791,7 @@
       <textarea id="modalMemo" style="width: 100%; padding: 0.9rem; border: 1px solid #ddd; border-radius: 8px; font-family: inherit; min-height: 150px; font-size: 14px; background: #fafaf8;"></textarea>
     </div>
 
-    <div style="display: flex; gap: 0.75rem; margin-top: 1.5rem;">
+    <div class="modal-actions">
       <button class="primary" style="flex: 1;" onclick="saveEditedMemo()">保存</button>
       <button style="flex: 1;" onclick="closeModal()">キャンセル</button>
     </div>
@@ -732,26 +806,170 @@ const SUPABASE_URL = 'https://vwfzlcgfgffknpmselzy.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_0LpdSdGbLIcC0P5rkVXgpg_1SN3sR-p';
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+const CUSTOM_CATEGORIES_KEY = 'instaSaverCustomCategories';
+
+function getBuiltInCategories() {
+  return [
+    { value: 'main', label: 'メイン料理' },
+    { value: 'side', label: '副菜' },
+    { value: 'dessert', label: 'お菓子' },
+    { value: 'bread', label: 'パン' },
+    { value: 'soup', label: 'スープ・汁物' },
+    { value: 'salad', label: 'サラダ' },
+    { value: 'kickboxing', label: 'キックボクシング' },
+    { value: 'ai', label: 'AI' },
+    { value: 'beauty', label: '美容' },
+    { value: 'drink', label: 'ドリンク' },
+    { value: 'other', label: 'その他' }
+  ];
+}
+
+function loadCustomCategories() {
+  try {
+    const raw = localStorage.getItem(CUSTOM_CATEGORIES_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveCustomCategories(categories) {
+  localStorage.setItem(CUSTOM_CATEGORIES_KEY, JSON.stringify(categories));
+}
+
+function slugifyCategoryLabel(label) {
+  return label
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9\-ぁ-んァ-ヶー一-龠]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '') || `custom-${Date.now()}`;
+}
+
+function getAllCategories() {
+  const builtIn = getBuiltInCategories();
+  const custom = loadCustomCategories();
+  return [...builtIn, ...custom];
+}
+
+function refreshCategorySelects(selectedMain = null, selectedModal = null) {
+  const allCategories = getAllCategories();
+  const selects = [
+    { id: 'category', selected: selectedMain },
+    { id: 'modalCategory', selected: selectedModal }
+  ];
+
+  selects.forEach(({ id, selected }) => {
+    const select = document.getElementById(id);
+    if (!select) return;
+
+    const currentValue = selected !== null ? selected : select.value;
+    select.innerHTML = '<option value="">選択してください</option>' +
+      allCategories.map(cat => `<option value="${cat.value}">${cat.label}</option>`).join('');
+
+    if (allCategories.some(cat => cat.value === currentValue)) {
+      select.value = currentValue;
+    } else if (currentValue === '') {
+      select.value = '';
+    }
+  });
+
+  renderCategoryTabs();
+}
+
+function addCustomCategory(isModal = false) {
+  const input = document.getElementById(isModal ? 'modalNewCategoryInput' : 'newCategoryInput');
+  if (!input) return;
+
+  const label = input.value.trim();
+  if (!label) {
+    alert('カテゴリ名を入力してください');
+    return;
+  }
+
+  const builtIn = getBuiltInCategories();
+  const custom = loadCustomCategories();
+  const normalized = label.toLowerCase();
+
+  const duplicate = [...builtIn, ...custom].some(cat => cat.label.toLowerCase() === normalized);
+  if (duplicate) {
+    alert('同じ名前のカテゴリがすでにあります');
+    return;
+  }
+
+  const newCategory = {
+    value: slugifyCategoryLabel(label),
+    label
+  };
+
+  custom.push(newCategory);
+  saveCustomCategories(custom);
+  refreshCategorySelects(
+    isModal ? document.getElementById('category')?.value ?? '' : newCategory.value,
+    isModal ? newCategory.value : document.getElementById('modalCategory')?.value ?? ''
+  );
+
+  if (isModal) {
+    document.getElementById('modalCategory').value = newCategory.value;
+  } else {
+    document.getElementById('category').value = newCategory.value;
+  }
+
+  input.value = '';
+}
+
+function renderCategoryTabs() {
+  const container = document.getElementById('tabsContainer');
+  if (!container) return;
+
+  const allCategories = getAllCategories();
+  const baseTabs = [
+    { value: '', label: 'すべて' },
+    ...allCategories
+  ];
+
+  container.innerHTML = baseTabs.map((tab, index) => `
+      <button class="tab-button ${currentFilterCategory === tab.value || (index === 0 && currentFilterCategory === '') ? 'active' : ''}" onclick="filterRecipes('${tab.value.replace(/'/g, "\\'")}', this)">${tab.label}</button>
+  `).join('');
+}
+
+function getDomainFromUrl(url) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return '';
+  }
+}
+
+function getDisplayTitle(recipe) {
+  if (recipe.memo && recipe.memo.trim()) return recipe.memo.trim();
+
+  if (recipe.post_url) {
+    try {
+      const url = new URL(recipe.post_url);
+      const segments = url.pathname.split('/').filter(Boolean);
+      const type = segments[0] || 'post';
+      const id = segments[1] || '';
+      const typeLabelMap = { reels: 'リール', reel: 'リール', p: '投稿', tv: '動画' };
+      return `Instagram ${typeLabelMap[type] || '投稿'} ${id ? ' / ' + id : ''}`.trim();
+    } catch {
+      return 'Instagram 投稿';
+    }
+  }
+
+  return '保存済み投稿';
+}
+
 let currentEditId = null;
 let currentImageFile = null;
 let modalImageFile = null;
 let currentFilterCategory = '';
 
 function getCategoryLabel(category) {
-  const labels = {
-    'main': 'メイン料理',
-    'side': '副菜',
-    'dessert': 'お菓子',
-    'bread': 'パン',
-    'soup': 'スープ・汁物',
-    'salad': 'サラダ',
-    'kickboxing': 'キックボクシング',
-    'ai': 'AI',
-    'beauty': '美容',
-    'drink': 'ドリンク',
-    'other': 'その他'
-  };
-  return labels[category] || category;
+  const found = getAllCategories().find(cat => cat.value === category);
+  return found ? found.label : category;
 }
 
 function normalizeInstagramUrl(rawUrl) {
@@ -1074,7 +1292,7 @@ async function renderRecipes(category = '') {
     grid.innerHTML = `
       <div class="empty-state">
         <span class="empty-state-icon">📝</span>
-        <p>レシピをまだ保存していません</p>
+        <p>お気に入り投稿をまだ保存していません</p>
       </div>
     `;
     return;
@@ -1082,12 +1300,10 @@ async function renderRecipes(category = '') {
 
   grid.innerHTML = recipes.map(recipe => `
     <div class="recipe-card ${recipe.post_url ? 'clickable' : ''}" ${recipe.post_url ? `onclick="openLink('${recipe.post_url.replace(/'/g, "\\'")}', event)"` : ''}>
-      <div class="recipe-image-wrapper" ${recipe.post_url ? `title="クリックで投稿を開く"` : ''}>
+      <div class="recipe-image-wrapper ${recipe.thumbnail_url ? '' : 'no-image'}" ${recipe.post_url ? `title="クリックで投稿を開く"` : ''}>
         ${recipe.thumbnail_url ? `
-          <img src="${recipe.thumbnail_url}" alt="recipe" onerror="this.parentElement.classList.add('no-image'); this.parentElement.innerHTML='🍽️';">
-        ` : `
-          <div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; font-size: 40px;">🍽️</div>
-        `}
+          <img src="${recipe.thumbnail_url}" alt="post thumbnail" onerror="this.parentElement.classList.add('no-image'); this.parentElement.innerHTML = createPlaceholderCardHtml('${encodeURIComponent(JSON.stringify(recipe)).replace(/'/g, "%27")}');">
+        ` : createPlaceholderCardHtml(encodeURIComponent(JSON.stringify(recipe)))}
       </div>
 
       <div class="recipe-content">
@@ -1106,6 +1322,39 @@ async function renderRecipes(category = '') {
   `).join('');
 }
 
+function createPlaceholderCardHtml(encodedRecipe) {
+  let recipe = {};
+  try {
+    recipe = JSON.parse(decodeURIComponent(encodedRecipe));
+  } catch {}
+
+  const title = escapeHtml(getDisplayTitle(recipe));
+  const domain = escapeHtml(getDomainFromUrl(recipe.post_url || '') || 'instagram.com');
+  const sub = recipe.post_url ? '画像がなくてもURLからすぐ開けます' : 'URL未登録';
+  const icon = '🔖';
+
+  return `
+    <div class="placeholder-card">
+      <div class="placeholder-top">
+        <span class="placeholder-icon">${icon}</span>
+        <span>Instagram</span>
+      </div>
+      <div class="placeholder-title">${title}</div>
+      <div class="placeholder-domain">${domain}</div>
+      <div class="placeholder-sub">${sub}</div>
+    </div>
+  `;
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
     closeModal();
@@ -1113,6 +1362,7 @@ document.addEventListener('keydown', function(e) {
 });
 
 document.addEventListener('DOMContentLoaded', async () => {
+  refreshCategorySelects();
   await renderRecipes();
 });
 </script>
