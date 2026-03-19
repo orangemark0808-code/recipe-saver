@@ -225,6 +225,25 @@
     background-color: #fff;
   }
 
+  .search-box {
+    margin-bottom: 0.85rem;
+  }
+
+  .search-box input {
+    width: 100%;
+    padding: 0.95rem 1rem;
+    border: 1px solid #ddd;
+    border-radius: 16px;
+    background: #fff;
+    font-size: 15px;
+  }
+
+  .search-box input:focus {
+    outline: none;
+    border-color: #D4764E;
+    box-shadow: 0 0 0 3px rgba(212, 118, 78, 0.1);
+  }
+
   .tabs {
     display: none !important;
   }
@@ -799,6 +818,10 @@
       <div class="recipe-count" id="recipeCount">0件</div>
     </div>
 
+    <div class="search-box">
+      <input type="search" id="searchInput" placeholder="メモ・URL・カテゴリで検索" oninput="handleSearchInput(this.value)">
+    </div>
+
     <div class="filter-select-wrap">
       <select id="categoryFilterSelect" class="category-filter-select" onchange="filterRecipes(this.value)">
         <option value="">すべて</option>
@@ -981,6 +1004,7 @@ let currentEditId = null;
 let currentImageFile = null;
 let modalImageFile = null;
 let currentFilterCategory = '';
+let currentSearchQuery = '';
 
 function getCategoryLabel(category) {
   const legacyMap = {
@@ -1216,6 +1240,11 @@ async function deleteRecipe(id, event) {
   await renderRecipes(currentFilterCategory);
 }
 
+function handleSearchInput(value) {
+  currentSearchQuery = (value || '').trim().toLowerCase();
+  renderRecipes(currentFilterCategory);
+}
+
 async function filterRecipes(category, clickedButton = null) {
   currentFilterCategory = category;
 
@@ -1310,6 +1339,17 @@ async function renderRecipes(category = '') {
     };
     const allowed = legacyFilterMap[category] || [category];
     recipes = recipes.filter(r => allowed.includes(r.category));
+  }
+
+  if (currentSearchQuery) {
+    recipes = recipes.filter(r => {
+      const categoryLabel = (getCategoryLabel(r.category || '') || '').toLowerCase();
+      const memo = (r.memo || '').toLowerCase();
+      const url = (r.post_url || '').toLowerCase();
+      return memo.includes(currentSearchQuery) ||
+             url.includes(currentSearchQuery) ||
+             categoryLabel.includes(currentSearchQuery);
+    });
   }
 
   const grid = document.getElementById('recipesGrid');
