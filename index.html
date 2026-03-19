@@ -537,6 +537,18 @@
     background: #fcfaf7;
   }
 
+  .footer-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+  }
+
+  @media (max-width: 480px) {
+    .footer-actions {
+      gap: 0.45rem;
+    }
+  }
+
   .recipe-footer {
     border-top: 1px solid #e8e6e0;
     padding-top: 0.5rem;
@@ -548,7 +560,19 @@
   }
 
   @media (max-width: 480px) {
-    .recipe-footer {
+    .footer-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+  }
+
+  @media (max-width: 480px) {
+    .footer-actions {
+      gap: 0.45rem;
+    }
+  }
+
+  .recipe-footer {
       gap: 0.5rem;
     }
   }
@@ -1529,8 +1553,10 @@ async function renderRecipes(category = '') {
 
         <div class="recipe-footer">
           <div class="recipe-date">📅 ${recipe.saved_date || ''}</div>
-          <button class="delete-btn" onclick="deleteRecipe(${recipe.id}, event)" title="削除">🗑️</button>
-          <button class="favorite-btn ${recipe.favorite ? 'active' : ''}" onclick="toggleFavorite(${recipe.id}, ${recipe.favorite ? 'true' : 'false'}, event)" title="お気に入り">${recipe.favorite ? '★' : '☆'}</button>
+          <div class="footer-actions">
+            <button class="delete-btn" onclick="deleteRecipe(${recipe.id}, event)" title="削除">🗑️</button>
+            <button class="favorite-btn ${recipe.favorite ? 'active' : ''}" onclick="toggleFavorite(${recipe.id}, ${recipe.favorite ? 'true' : 'false'}, event)" title="お気に入り">${recipe.favorite ? '★' : '☆'}</button>
+          </div>
         </div>
       </div>
     </div>
