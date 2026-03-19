@@ -23,6 +23,11 @@
     padding: 1.5rem;
   }
 
+  body.modal-open {
+    overflow: hidden;
+    touch-action: none;
+  }
+
   .header {
     text-align: center;
     margin-bottom: 2.5rem;
@@ -533,20 +538,25 @@
 
   @media (max-width: 768px) {
     .modal {
-      padding: 0;
-      align-items: stretch;
-      justify-content: stretch;
+      padding: 0 !important;
+      align-items: stretch !important;
+      justify-content: stretch !important;
       background: rgba(0, 0, 0, 0.45);
     }
 
     .modal-content {
-      width: min(100vw, 100%);
-      max-width: none;
-      min-height: 100dvh;
-      max-height: 100dvh;
-      border-radius: 0;
-      padding: calc(14px + env(safe-area-inset-top)) 12px calc(18px + env(safe-area-inset-bottom)) 12px;
-      box-shadow: none;
+      position: fixed !important;
+      inset: 0 !important;
+      width: 100vw !important;
+      height: 100dvh !important;
+      min-width: 100vw !important;
+      min-height: 100dvh !important;
+      max-width: 100vw !important;
+      max-height: 100dvh !important;
+      border-radius: 0 !important;
+      padding: calc(14px + env(safe-area-inset-top)) 12px calc(18px + env(safe-area-inset-bottom)) 12px !important;
+      box-shadow: none !important;
+      margin: 0 !important;
     }
 
     .modal-header {
@@ -556,7 +566,7 @@
     }
 
     .modal-close {
-      display: none;
+      display: none !important;
     }
 
     .thumbnail-preview {
@@ -580,8 +590,8 @@
 
   @media (max-width: 420px) {
     .modal-content {
-      padding-left: 10px;
-      padding-right: 10px;
+      padding-left: 10px !important;
+      padding-right: 10px !important;
     }
 
     .thumbnail-preview {
@@ -1253,10 +1263,12 @@ async function openEditModal(id, event) {
   }
 
   document.getElementById('editModal').classList.add('active');
+  document.body.classList.add('modal-open');
 }
 
 function closeModal() {
   document.getElementById('editModal').classList.remove('active');
+  document.body.classList.remove('modal-open');
   currentEditId = null;
   modalImageFile = null;
 }
