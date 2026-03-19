@@ -1389,6 +1389,11 @@ function openLink(url, event) {
   }
 }
 
+function openEditFromCard(id, event) {
+  if (event) event.stopPropagation();
+  openEditModal(id, event || { stopPropagation() {} });
+}
+
 async function renderRecipes(category = '') {
   let recipes = await loadRecipes();
 
