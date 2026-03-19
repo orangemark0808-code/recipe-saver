@@ -19,7 +19,7 @@
 
   .container {
     max-width: 1000px;
-    margin: 0 auto;Q
+    margin: 0 auto;
     padding: 1.5rem;
   }
 
@@ -370,6 +370,10 @@
     cursor: pointer;
   }
 
+  .recipe-image-link:hover::before {
+    background: rgba(0,0,0,0.12);
+  }
+
   .recipe-image-wrapper {
     position: relative;
     width: 100%;
@@ -399,9 +403,7 @@
     z-index: 1;
   }
 
-  .recipe-card.clickable:hover .recipe-image-wrapper::before {
-    background: rgba(0,0,0,0.1);
-  }
+  
 
   .recipe-image-wrapper.no-image {
   background: linear-gradient(135deg, #f3efe9, #e9e4dc);
@@ -1464,17 +1466,19 @@ async function renderRecipes(category = '') {
   }
 
   grid.innerHTML = recipes.map(recipe => `
-    <div class="recipe-card ${recipe.post_url ? 'clickable' : ''}" ${recipe.post_url ? `onclick="openLink('${recipe.post_url.replace(/'/g, "\\'")}', event)"` : ''}>
-      <div class="recipe-image-wrapper ${recipe.thumbnail_url ? '' : 'no-image'}" ${recipe.post_url ? `title="クリックで投稿を開く"` : ''}>
+    <div class="recipe-card">
+      <div class="recipe-image-wrapper ${recipe.thumbnail_url ? '' : 'no-image'} ${recipe.post_url ? 'recipe-image-link' : ''}" ${recipe.post_url ? `title="クリックで投稿を開く" onclick="openLink('${recipe.post_url.replace(/'/g, "\\'")}', event)"` : ''}>
         ${recipe.thumbnail_url ? `
           <img src="${recipe.thumbnail_url}" alt="post thumbnail" onerror="this.parentElement.classList.add('no-image'); this.parentElement.innerHTML = createPlaceholderCardHtml('${encodeURIComponent(JSON.stringify(recipe)).replace(/'/g, "%27")}');">
         ` : createPlaceholderCardHtml(encodeURIComponent(JSON.stringify(recipe)))}
       </div>
 
       <div class="recipe-content">
-        ${recipe.category ? `<div class="recipe-category">${getCategoryLabel(recipe.category)}</div>` : ''}
-        <div class="recipe-memo ${recipe.memo ? '' : 'empty'}">
-          ${recipe.memo ? recipe.memo.substring(0, 100) : 'メモなし'}
+        <div class="recipe-edit-zone" onclick="openEditFromCard(${recipe.id}, event)">
+          ${recipe.category ? `<div class="recipe-category">${getCategoryLabel(recipe.category)}</div>` : ''}
+          <div class="recipe-memo ${recipe.memo ? '' : 'empty'}">
+            ${recipe.memo ? recipe.memo.substring(0, 100) : 'メモなし'}
+          </div>
         </div>
 
         <div class="recipe-footer">
@@ -1484,7 +1488,7 @@ async function renderRecipes(category = '') {
         </div>
       </div>
     </div>
-  `).join('');
+  `).join('');;
 }
 
 function createPlaceholderCardHtml(encodedRecipe) {
