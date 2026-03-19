@@ -1135,7 +1135,10 @@ async function loadRecipes() {
     return [];
   }
 
-  return data || [];
+  return (data || []).map(item => ({
+    ...item,
+    favorite: !!item.favorite
+  }));
 }
 
 async function uploadImage(file) {
@@ -1414,6 +1417,28 @@ async function saveEditedMemo() {
   }
 }
 
+async function toggleFavorite(id, currentValue, event) {
+  if (event) event.stopPropagation();
+
+  try {
+    const { error } = await supabaseClient
+      .from('recipes')
+      .update({ favorite: !currentValue })
+      .eq('id', id);
+
+    if (error) {
+      console.error('お気に入り更新エラー:', error);
+      alert('お気に入り機能を使うには、Supabase の recipes テーブルに favorite 列を追加してください。');
+      return;
+    }
+
+    await renderRecipes(currentFilterCategory);
+  } catch (err) {
+    console.error(err);
+    alert('お気に入り更新に失敗しました');
+  }
+}
+
 function openLink(url, event) {
   if (event) event.stopPropagation();
   if (url) {
@@ -1484,7 +1509,7 @@ async function renderRecipes(category = '') {
         <div class="recipe-footer">
           <div class="recipe-date">📅 ${recipe.saved_date || ''}</div>
           <button class="delete-btn" onclick="deleteRecipe(${recipe.id}, event)" title="削除">🗑️</button>
-          <button class="edit-btn" onclick="openEditModal(${recipe.id}, event)" title="編集">✏️</button>
+          <button class="favorite-btn ${recipe.favorite ? 'active' : ''}" onclick="toggleFavorite(${recipe.id}, ${recipe.favorite ? 'true' : 'false'}, event)" title="お気に入り">${recipe.favorite ? '★' : '☆'}</button>
         </div>
       </div>
     </div>
