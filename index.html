@@ -544,7 +544,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 0.25rem;
+    gap: 0.2rem;
   }
 
   @media (max-width: 480px) {
@@ -559,25 +559,46 @@
     flex: 1;
   }
 
-  .edit-btn, .delete-btn {
+  .favorite-btn, .delete-btn {
     background: none;
     border: none;
     color: #888780;
     cursor: pointer;
-    font-size: 16px;
-    padding: 0.3rem 0.4rem;
-    transition: color 0.2s;
-    flex-shrink: 0;
-    min-width: 30px;
+    font-size: clamp(20px, 5vw, 26px);
+    padding: 0;
+    margin: 0;
+    transition: color 0.2s, transform 0.15s;
+    flex: 0 0 auto;
+    min-width: 24px;
+    width: auto;
+    height: auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
     text-align: center;
+    box-shadow: none;
+    appearance: none;
+    -webkit-appearance: none;
   }
 
-  .edit-btn:hover {
-    color: #D4764E;
+  .favorite-btn:hover {
+    transform: scale(1.08);
+  }
+
+  .favorite-btn.active {
+    color: #facc15;
   }
 
   .delete-btn:hover {
     color: #E24B4A;
+  }
+
+  @media (max-width: 480px) {
+    .favorite-btn, .delete-btn {
+      font-size: 22px;
+      min-width: 22px;
+    }
   }
 
   .empty-state {
