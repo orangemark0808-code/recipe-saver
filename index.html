@@ -197,6 +197,38 @@
     font-weight: 600;
   }
 
+  .filter-select-wrap {
+    margin-bottom: 1rem;
+  }
+
+  .category-filter-select {
+    width: 100%;
+    padding: 0.95rem 1rem;
+    border: 1px solid #ddd;
+    border-radius: 16px;
+    background: #f0ede7;
+    color: #2c2c2a;
+    font-size: 16px;
+    font-weight: 600;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: linear-gradient(45deg, transparent 50%, #8a7f76 50%), linear-gradient(135deg, #8a7f76 50%, transparent 50%);
+    background-position: calc(100% - 22px) calc(50% - 3px), calc(100% - 16px) calc(50% - 3px);
+    background-size: 6px 6px, 6px 6px;
+    background-repeat: no-repeat;
+  }
+
+  .category-filter-select:focus {
+    outline: none;
+    border-color: #D4764E;
+    box-shadow: 0 0 0 3px rgba(212, 118, 78, 0.1);
+    background-color: #fff;
+  }
+
+  .tabs {
+    display: none !important;
+  }
+
   .tabs {
     display: flex;
     flex-wrap: wrap;
@@ -767,7 +799,11 @@
       <div class="recipe-count" id="recipeCount">0件</div>
     </div>
 
-    <div class="tabs" id="tabsContainer"></div>
+    <div class="filter-select-wrap">
+      <select id="categoryFilterSelect" class="category-filter-select" onchange="filterRecipes(this.value)">
+        <option value="">すべて</option>
+      </select>
+    </div>
 
     <div class="recipes-grid" id="recipesGrid">
       <div class="empty-state">
@@ -904,18 +940,14 @@ function addCustomCategory(isModal = false) {
 }
 
 function renderCategoryTabs() {
-  const container = document.getElementById('tabsContainer');
-  if (!container) return;
+  const select = document.getElementById('categoryFilterSelect');
+  if (!select) return;
 
-  const allCategories = getAllCategories();
-  const baseTabs = [
-    { value: '', label: 'すべて' },
-    ...allCategories
-  ];
+  const allCategories = getBuiltInCategories();
+  select.innerHTML = '<option value="">すべて</option>' +
+    allCategories.map(cat => `<option value="${cat.value}">${cat.label}</option>`).join('');
 
-  container.innerHTML = baseTabs.map((tab, index) => `
-      <button class="tab-button ${currentFilterCategory === tab.value || (index === 0 && currentFilterCategory === '') ? 'active' : ''}" onclick="filterRecipes('${tab.value.replace(/'/g, "\\'")}', this)">${tab.label}</button>
-  `).join('');
+  select.value = currentFilterCategory || '';
 }
 
 function getDomainFromUrl(url) {
@@ -951,6 +983,15 @@ let modalImageFile = null;
 let currentFilterCategory = '';
 
 function getCategoryLabel(category) {
+  const legacyMap = {
+    dessert: 'おやつ',
+    ai: 'IT関連',
+    salad: 'その他',
+    bread: 'その他',
+    drink: 'その他'
+  };
+  const normalized = legacyMap[category] ? Object.keys(legacyMap).find(key => key === category) : category;
+  if (legacyMap[category]) return legacyMap[category];
   const found = getAllCategories().find(cat => cat.value === category);
   return found ? found.label : category;
 }
@@ -1178,12 +1219,9 @@ async function deleteRecipe(id, event) {
 async function filterRecipes(category, clickedButton = null) {
   currentFilterCategory = category;
 
-  document.querySelectorAll('.tab-button').forEach(btn => {
-    btn.classList.remove('active');
-  });
-
-  if (clickedButton) {
-    clickedButton.classList.add('active');
+  const select = document.getElementById('categoryFilterSelect');
+  if (select && select.value !== category) {
+    select.value = category;
   }
 
   await renderRecipes(category);
@@ -1265,7 +1303,13 @@ async function renderRecipes(category = '') {
   let recipes = await loadRecipes();
 
   if (category) {
-    recipes = recipes.filter(r => r.category === category);
+    const legacyFilterMap = {
+      snack: ['snack', 'dessert'],
+      it: ['it', 'ai'],
+      other: ['other', 'salad', 'bread', 'drink']
+    };
+    const allowed = legacyFilterMap[category] || [category];
+    recipes = recipes.filter(r => allowed.includes(r.category));
   }
 
   const grid = document.getElementById('recipesGrid');
