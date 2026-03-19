@@ -404,16 +404,13 @@
   }
 
   .recipe-image-wrapper.no-image {
-    background: linear-gradient(135deg, #f3efe9 0%, #e9e4dc 100%);
-    border-bottom: 1px solid #f0e6dd;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    position: relative;
-    overflow: hidden;
-    font-size: initial;
-  }
+  background: linear-gradient(135deg, #f3efe9, #e9e4dc);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-bottom: 1px solid #f0e6dd;
+}
 
   .recipe-image-wrapper.no-image::after {
     content: '';
@@ -1450,12 +1447,7 @@ async function renderRecipes(category = '') {
 function createPlaceholderCardHtml(encodedRecipe) {
   return `
     <div class="placeholder-card">
-      <div class="placeholder-top">
-        <span class="placeholder-icon">📎</span>
-        <span>Instagram</span>
-      </div>
-      <div class="placeholder-domain">画像がなくてもURLから開けます</div>
-      <div class="placeholder-sub">タップして投稿を表示</div>
+      <div class="no-image-logo">NO IMAGE</div>
     </div>
   `;
 }
