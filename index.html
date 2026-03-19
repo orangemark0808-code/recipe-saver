@@ -54,7 +54,7 @@
     border: 1px solid #ddd;
     border-radius: 12px;
     padding: 2rem;
-    margin-bottom: 2rem;
+    margin-bottom: 1rem;
     box-shadow: 0 2px 8px rgba(0,0,0,0.05);
   }
 
@@ -199,7 +199,8 @@
 
   .tabs {
     display: flex;
-    gap: 0.5rem;
+    gap: 0.25rem;
+    flex-wrap: wrap;
     margin-bottom: 1.5rem;
     border-bottom: 2px solid #e8e6e0;
     overflow-x: auto;
@@ -847,7 +848,16 @@ const CUSTOM_CATEGORIES_KEY = 'instaSaverCustomCategories';
 
 function getBuiltInCategories() {
   return [
-    { value: 'main', label: 'メイン料理' },
+    { value: 'snack', label: 'おやつ' },
+    { value: 'main', label: 'メイン' },
+    { value: 'side', label: '副菜' },
+    { value: 'soup', label: 'スープ・汁物' },
+    { value: 'kickboxing', label: 'キックボクシング' },
+    { value: 'it', label: 'IT関連' },
+    { value: 'beauty', label: '美容' },
+    { value: 'other', label: 'その他' }
+  ];
+},
     { value: 'side', label: '副菜' },
     { value: 'dessert', label: 'お菓子' },
     { value: 'bread', label: 'パン' },
