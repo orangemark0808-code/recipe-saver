@@ -1,0 +1,1673 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#D4764E">
+<meta name="description" content="Instagramの投稿をスクリーンショットで保存・管理">
+<title>インスタセーバー - Instagram投稿管理</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  
+  html, body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif;
+    background: #f8f7f3;
+    color: #2c2c2a;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  .container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 1.5rem;
+  }
+
+  body.modal-open {
+    overflow: hidden;
+    touch-action: none;
+  }
+
+  .header {
+    text-align: center;
+    margin-bottom: 2.5rem;
+    padding: 2rem;
+    background: linear-gradient(135deg, #D4764E 0%, #E89B66 100%);
+    border-radius: 16px;
+    color: white;
+    box-shadow: 0 2px 8px rgba(212, 118, 78, 0.15);
+  }
+
+  .header h1 {
+    font-size: 32px;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+  }
+
+  .header p {
+    font-size: 14px;
+    opacity: 0.95;
+  }
+
+  .input-section {
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 12px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  }
+
+  .input-group {
+    margin-bottom: 1.5rem;
+  }
+
+  .input-group:last-child {
+    margin-bottom: 0;
+  }
+
+  label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 0.6rem;
+    color: #2c2c2a;
+  }
+
+  input[type="text"],
+  input[type="url"],
+  textarea,
+  select {
+    width: 100%;
+    padding: 0.9rem;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+    transition: all 0.2s;
+    background: #fafaf8;
+  }
+
+  input[type="text"]:focus,
+  input[type="url"]:focus,
+  textarea:focus,
+  select:focus {
+    outline: none;
+    border-color: #D4764E;
+    background: white;
+    box-shadow: 0 0 0 3px rgba(212, 118, 78, 0.1);
+  }
+
+  textarea {
+    resize: vertical;
+    min-height: 80px;
+    font-family: inherit;
+  }
+
+  .upload-area {
+    width: 100%;
+    border: 2px dashed #ddd;
+    border-radius: 8px;
+    padding: 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    background: #fafaf8;
+  }
+
+  .upload-area:hover {
+    border-color: #D4764E;
+    background: #f5ede3;
+  }
+
+  .upload-area.dragover {
+    border-color: #D4764E;
+    background: #f0e6d8;
+    box-shadow: 0 0 0 3px rgba(212, 118, 78, 0.1);
+  }
+
+  .upload-area-content {
+    pointer-events: none;
+  }
+
+  .button-group {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 2rem;
+    flex-wrap: wrap;
+  }
+
+  button {
+    flex: 1;
+    min-width: 120px;
+    padding: 0.9rem 1.5rem;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background: white;
+    color: #2c2c2a;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  button:hover {
+    background: #f0ede7;
+    border-color: #D4764E;
+  }
+
+  button:active {
+    transform: scale(0.98);
+  }
+
+  button.primary {
+    background: #D4764E;
+    color: white;
+    border-color: #D4764E;
+  }
+
+  button.primary:hover {
+    background: #C1664A;
+  }
+
+  .recipes-section {
+    margin-top: 2rem;
+  }
+
+  .recipes-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .recipes-header h2 {
+    font-size: 22px;
+    font-weight: 700;
+  }
+
+  .recipe-count {
+    font-size: 13px;
+    color: #888780;
+    background: #f0ede7;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-weight: 600;
+  }
+
+  .filter-select-wrap {
+    margin-bottom: 1rem;
+  }
+
+  .category-filter-select {
+    width: 100%;
+    padding: 0.95rem 1rem;
+    border: 1px solid #ddd;
+    border-radius: 16px;
+    background: #f0ede7;
+    color: #2c2c2a;
+    font-size: 16px;
+    font-weight: 600;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: linear-gradient(45deg, transparent 50%, #8a7f76 50%), linear-gradient(135deg, #8a7f76 50%, transparent 50%);
+    background-position: calc(100% - 22px) calc(50% - 3px), calc(100% - 16px) calc(50% - 3px);
+    background-size: 6px 6px, 6px 6px;
+    background-repeat: no-repeat;
+  }
+
+  .category-filter-select:focus {
+    outline: none;
+    border-color: #D4764E;
+    box-shadow: 0 0 0 3px rgba(212, 118, 78, 0.1);
+    background-color: #fff;
+  }
+
+  .search-box {
+    margin-bottom: 0.85rem;
+  }
+
+  .search-box input {
+    width: 100%;
+    padding: 0.95rem 1rem;
+    border: 1px solid #ddd;
+    border-radius: 16px;
+    background: #fff;
+    font-size: 15px;
+  }
+
+  .search-box input:focus {
+    outline: none;
+    border-color: #D4764E;
+    box-shadow: 0 0 0 3px rgba(212, 118, 78, 0.1);
+  }
+
+  .tabs {
+    display: none !important;
+  }
+
+  .tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    margin-bottom: 1rem;
+    border-bottom: 2px solid #e8e6e0;
+    overflow-x: visible;
+    padding-bottom: 0;
+  }
+
+  .tab-button {
+    border: none;
+    background: none;
+    padding: 0.5rem 0.75rem;
+    font-size: 13px;
+    color: #888780;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    transition: all 0.2s;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .tab-button.active {
+    color: #D4764E;
+    border-bottom-color: #D4764E;
+  }
+
+  .tab-button:hover:not(.active) {
+    color: #2c2c2a;
+  }
+
+  @media (max-width: 480px) {
+    .tabs {
+      gap: 0.25rem;
+      margin-bottom: 1rem;
+    }
+
+    .tab-button {
+      padding: 0.6rem 0.8rem;
+      font-size: 12px;
+    }
+  }
+
+  .recipes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 1.5rem;
+  }
+
+  @media (max-width: 768px) {
+    .recipes-grid {
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 1rem;
+    }
+    
+    .input-section {
+      padding: 1.5rem;
+    }
+
+    .header h1 {
+      font-size: 24px;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .recipes-grid {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.75rem;
+    }
+
+    .container {
+      padding: 1rem;
+    }
+
+    .header {
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .header h1 {
+      font-size: 24px;
+    }
+
+    .input-section {
+      padding: 1rem;
+    }
+
+    button {
+      min-width: 100%;
+    }
+
+    .button-group {
+      flex-direction: column;
+    }
+
+    .recipes-header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+  }
+
+  .recipe-card {
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 12px;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .recipe-card:hover {
+    border-color: #D4764E;
+    box-shadow: 0 4px 12px rgba(212, 118, 78, 0.12);
+  }
+
+  .recipe-image-link {
+    cursor: pointer;
+  }
+
+  .recipe-image-link:hover::before {
+    background: rgba(0,0,0,0.12);
+  }
+
+  .recipe-image-wrapper {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    overflow: hidden;
+    background: linear-gradient(135deg, #F5E6D3 0%, #E8D4B8 100%);
+  }
+
+  .recipe-image-wrapper img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .recipe-image-wrapper::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0);
+    transition: background 0.3s;
+    z-index: 1;
+  }
+
+  
+
+  .recipe-image-wrapper.no-image {
+  background: linear-gradient(135deg, #f3efe9, #e9e4dc);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-bottom: 1px solid #f0e6dd;
+}
+
+  .recipe-image-wrapper.no-image::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at top right, rgba(212,118,78,0.18), transparent 60%);
+    pointer-events: none;
+  }
+
+  .placeholder-card {
+    width: 100%;
+    height: 100%;
+    min-height: 180px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    text-align: center;
+    padding: 1rem;
+    position: relative;
+    z-index: 1;
+  }
+
+  .placeholder-top {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    font-weight: 700;
+    color: #8d5b43;
+    font-size: 14px;
+  }
+
+  .placeholder-icon {
+    font-size: 26px;
+    line-height: 1;
+  }
+
+  .placeholder-domain {
+    font-size: 12px;
+    line-height: 1.6;
+    color: #8a7f76;
+    font-weight: 600;
+  }
+
+  .placeholder-sub {
+    font-size: 12px;
+    line-height: 1.6;
+    color: #8a7f76;
+    font-weight: 600;
+  }
+
+  .recipe-content {
+    padding: 0.75rem;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .recipe-content {
+    cursor: default;
+  }
+
+  .recipe-content * {
+    position: relative;
+    z-index: 2;
+  }
+
+  .recipe-edit-zone {
+    cursor: pointer;
+  }
+
+  .recipe-edit-zone:hover .recipe-memo,
+  .recipe-edit-zone:hover .recipe-category {
+    border-color: #e3c2b0;
+    background: #fcfaf7;
+  }
+
+
+  .recipe-category {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    background: #f0ede7;
+    color: #D4764E;
+    padding: 0.25rem 0.6rem;
+    border-radius: 12px;
+    margin-bottom: 0.35rem;
+    width: fit-content;
+  }
+
+  .recipe-memo {
+    font-size: 11px;
+    color: #5f5e5a;
+    background: #fafaf8;
+    padding: 0.5rem;
+    border-radius: 4px;
+    margin-bottom: 0.5rem;
+    border: 1px solid #e8e6e0;
+    min-height: 40px;
+    max-height: 70px;
+    overflow-y: auto;
+    line-height: 1.3;
+    word-break: break-word;
+    white-space: pre-wrap;
+  }
+
+  .recipe-memo.empty {
+    color: #888780;
+    font-style: italic;
+    min-height: auto;
+  }
+
+  .recipe-edit-zone {
+    cursor: pointer;
+  }
+
+  .recipe-edit-zone:hover .recipe-memo,
+  .recipe-edit-zone:hover .recipe-category {
+    border-color: #e3c2b0;
+    background: #fcfaf7;
+  }
+
+  .footer-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+  }
+
+  @media (max-width: 480px) {
+    .footer-actions {
+      gap: 0.45rem;
+    }
+  }
+
+  .recipe-footer {
+    border-top: 1px solid #e8e6e0;
+    padding-top: 0.5rem;
+    margin-top: auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.2rem;
+  }
+
+  @media (max-width: 480px) {
+    .footer-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+  }
+
+  @media (max-width: 480px) {
+    .footer-actions {
+      gap: 0.45rem;
+    }
+  }
+
+  .recipe-footer {
+      gap: 0.5rem;
+    }
+  }
+
+  .recipe-date {
+    font-size: 10px;
+    color: #888780;
+    flex: 1;
+  }
+
+  .favorite-btn, .delete-btn {
+    background: none;
+    border: none;
+    color: #888780;
+    cursor: pointer;
+    padding: 0;
+    margin: 0;
+    transition: color 0.2s, transform 0.15s;
+    flex: 0 0 auto;
+    width: auto;
+    height: auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    text-align: center;
+    box-shadow: none;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+
+  .favorite-btn {
+    font-size: clamp(22px, 5.2vw, 28px);
+    min-width: 28px;
+  }
+
+  .delete-btn {
+    font-size: clamp(16px, 3.8vw, 20px);
+    min-width: 22px;
+  }
+
+  .favorite-btn:hover {
+    transform: scale(1.08);
+  }
+
+  .favorite-btn.active {
+    color: #facc15;
+  }
+
+  .delete-btn:hover {
+    color: #E24B4A;
+  }
+
+  @media (max-width: 480px) {
+    .favorite-btn {
+      font-size: 24px;
+      min-width: 26px;
+    }
+
+    .delete-btn {
+      font-size: 17px;
+      min-width: 20px;
+    }
+  }
+
+  .empty-state {
+    grid-column: 1/-1;
+    text-align: center;
+    padding: 3rem 1rem;
+    color: #888780;
+  }
+
+  .empty-state-icon {
+    font-size: 56px;
+    margin-bottom: 1rem;
+    display: block;
+  }
+
+  .empty-state p {
+    font-size: 14px;
+  }
+
+  .info-message {
+    background: #fafaf8;
+    border-left: 4px solid #D4764E;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    border-radius: 4px;
+    font-size: 13px;
+    color: #5f5e5a;
+  }
+
+  .modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.58);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  }
+
+  .modal.active {
+    display: flex;
+  }
+
+  .modal-content {
+    background: white;
+    border-radius: 18px;
+    padding: 1.5rem;
+    width: min(860px, 100%);
+    max-height: min(92vh, 100dvh - 24px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.22);
+    position: relative;
+  }
+
+  .modal-header {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 1.25rem;
+    color: #2c2c2a;
+    padding-right: 2.5rem;
+    position: sticky;
+    top: 0;
+    background: white;
+    z-index: 2;
+  }
+
+  .modal-close {
+    position: sticky;
+    top: 0;
+    float: right;
+    margin-left: auto;
+    margin-top: -0.25rem;
+    background: #fff;
+    border: 1px solid #e6ddd6;
+    border-radius: 999px;
+    width: 42px;
+    height: 42px;
+    min-width: 42px;
+    font-size: 24px;
+    color: #888780;
+    cursor: pointer;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .modal-close:hover {
+    color: #2c2c2a;
+    background: #faf7f4;
+  }
+
+  @media (max-width: 768px) {
+    .modal {
+      padding: 0 !important;
+      align-items: stretch !important;
+      justify-content: stretch !important;
+      background: rgba(0, 0, 0, 0.45);
+    }
+
+    .modal-content {
+      position: fixed !important;
+      inset: 0 !important;
+      width: 100vw !important;
+      height: 100dvh !important;
+      min-width: 100vw !important;
+      min-height: 100dvh !important;
+      max-width: 100vw !important;
+      max-height: 100dvh !important;
+      border-radius: 0 !important;
+      padding: calc(14px + env(safe-area-inset-top)) 12px calc(18px + env(safe-area-inset-bottom)) 12px !important;
+      box-shadow: none !important;
+      margin: 0 !important;
+    }
+
+    .modal-header {
+      font-size: 24px;
+      margin-bottom: 0.85rem;
+      padding-right: 0;
+    }
+
+    .modal-close {
+      display: none !important;
+    }
+
+    .thumbnail-preview {
+      width: 100%;
+      height: min(44vh, 420px);
+      border-radius: 12px;
+      margin-bottom: 1rem;
+    }
+
+    .modal-upload-area {
+      width: 100%;
+      padding: 1.25rem;
+    }
+
+    #modalMemo {
+      min-height: 36vh !important;
+      font-size: 16px !important;
+      line-height: 1.65;
+    }
+  }
+
+  @media (max-width: 420px) {
+    .modal-content {
+      padding-left: 10px !important;
+      padding-right: 10px !important;
+    }
+
+    .thumbnail-preview {
+      height: min(40vh, 360px);
+    }
+  }
+
+  .thumbnail-preview {
+    width: 100%;
+    height: 200px;
+    background: linear-gradient(135deg, #F5E6D3 0%, #E8D4B8 100%);
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  .thumbnail-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .thumbnail-preview.no-image {
+    background: linear-gradient(135deg, #f3efe9, #e9e4dc);
+    border: 1px solid #f0e6dd;
+    font-size: initial;
+    color: inherit;
+  }
+
+  .thumbnail-preview.no-image .placeholder-card {
+    min-height: auto;
+  }
+
+  #imagePreview {
+    margin-top: 1rem;
+  }
+
+  #previewImg {
+    max-width: 100%;
+    max-height: 200px;
+    border-radius: 8px;
+  }
+
+  .modal-upload-area {
+    width: 100%;
+    border: 2px dashed #ddd;
+    border-radius: 8px;
+    padding: 1.5rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    background: #fafaf8;
+    margin-bottom: 1rem;
+  }
+
+  .modal-upload-area:hover {
+    border-color: #D4764E;
+    background: #f5ede3;
+  }
+
+  .modal-actions {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+  }
+
+  #modalCategory,
+  #modalMemo,
+  #modalUploadArea {
+    width: 100%;
+  }
+
+  #modalMemo {
+    min-height: 220px;
+  }
+
+  @media (max-width: 768px) {
+    .modal-actions {
+      flex-direction: column;
+      position: sticky;
+      bottom: calc(-1 * env(safe-area-inset-bottom));
+      background: linear-gradient(to top, rgba(255,255,255,1), rgba(255,255,255,0.96));
+      padding-top: 0.75rem;
+    }
+
+    .modal-actions button {
+      min-width: 100%;
+    }
+  }
+
+  .site-footer {
+    text-align: center;
+    color: #888780;
+    font-size: 12px;
+    margin-top: 2.5rem;
+    padding: 1.25rem 0 0.5rem;
+  }
+
+
+  .modal-upload-area.dragover {
+    border-color: #D4764E;
+    background: #f0e6d8;
+    box-shadow: 0 0 0 3px rgba(212, 118, 78, 0.1);
+  }
+
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: calc(24px + env(safe-area-inset-bottom));
+    transform: translateX(-50%) translateY(12px);
+    background: rgba(44, 44, 42, 0.94);
+    color: #fff;
+    padding: 12px 18px;
+    border-radius: 999px;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.4;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    z-index: 100001;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+    white-space: nowrap;
+    max-width: calc(100vw - 32px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  @media (max-width: 480px) {
+    .toast {
+      font-size: 13px;
+      padding: 11px 16px;
+      bottom: calc(18px + env(safe-area-inset-bottom));
+      max-width: calc(100vw - 24px);
+    }
+  }
+
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h1>🍳 インスタセーバー</h1>
+    <p>Instagramのお気に入り投稿のURLを保存・管理</p>
+  </div>
+
+  <div class="info-message">
+    💡 投稿のURLを貼り付けて保存。カテゴリーで簡単検索！
+  </div>
+
+  <div class="input-section">
+    <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 1.5rem; color: #2c2c2a;">新しいお気に入りを追加</h3>
+    
+    <div class="input-group">
+      <label>Instagram投稿URL（任意）</label>
+      <input type="url" id="postUrl" placeholder="https://instagram.com/p/ABC123...">
+    </div>
+
+    <div class="input-group">
+      <label>スクリーンショット画像（任意）</label>
+      <div id="uploadArea" class="upload-area" ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" onclick="document.getElementById('imageInput').click()">
+        <div class="upload-area-content">
+          <div style="font-size: 32px; margin-bottom: 0.5rem;">📸</div>
+          <div style="font-size: 13px; color: #2c2c2a; font-weight: 500;">ここに画像をドラッグ&ドロップ</div>
+          <div style="font-size: 12px; color: #888780; margin-top: 0.3rem;">またはクリックして選択</div>
+        </div>
+      </div>
+      <input type="file" id="imageInput" style="display: none;" accept="image/*" onchange="handleImageSelect(event)">
+      <div id="imagePreview" style="display: none;">
+        <img id="previewImg" src="">
+        <button type="button" onclick="clearImage()" style="margin-top: 0.5rem; width: 100%; padding: 0.6rem; border: 1px solid #ddd; border-radius: 8px; background: white; cursor: pointer;">画像を削除</button>
+      </div>
+    </div>
+
+    <div class="input-group">
+      <label>カテゴリ</label>
+      <select id="category">
+        <option value="">選択してください</option>
+        <option value="main">メイン料理</option>
+        <option value="side">副菜</option>
+        <option value="dessert">お菓子</option>
+        <option value="bread">パン</option>
+        <option value="soup">スープ・汁物</option>
+        <option value="salad">サラダ</option>
+        <option value="kickboxing">キックボクシング</option>
+        <option value="ai">AI</option>
+        <option value="beauty">美容</option>
+        <option value="drink">ドリンク</option>
+        <option value="other">その他</option>
+      </select>
+    </div>
+
+    <div class="input-group">
+      <label>メモ</label>
+      <textarea id="memo" placeholder="メモを入力してください"></textarea>
+    </div>
+
+    <div class="button-group">
+      <button class="primary" onclick="saveRecipe()">💾 保存する</button>
+      <button onclick="clearForm()">クリア</button>
+    </div>
+  </div>
+
+  <div class="recipes-section">
+    <div class="recipes-header">
+      <h2>保存済み投稿</h2>
+      <div class="recipe-count" id="recipeCount">0件</div>
+    </div>
+
+    <div class="search-box">
+      <input type="search" id="searchInput" placeholder="メモ・URL・カテゴリで検索" oninput="handleSearchInput(this.value)">
+    </div>
+
+    <div class="filter-select-wrap">
+      <select id="categoryFilterSelect" class="category-filter-select" onchange="filterRecipes(this.value)">
+        <option value="">すべて</option>
+        <option value="favorites">お気に入り</option>
+      </select>
+    </div>
+
+    <div class="recipes-grid" id="recipesGrid">
+      <div class="empty-state">
+        <span class="empty-state-icon">📝</span>
+        <p>レシピをまだ保存していません</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 編集モーダル -->
+<div class="modal" id="editModal">
+  <div class="modal-content">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div class="modal-header">投稿を編集</div>
+    
+    <div class="thumbnail-preview no-image" id="modalThumbnail">
+      <div class="placeholder-card"><div class="no-image-logo">NO IMAGE</div></div>
+    </div>
+
+    <div style="margin-bottom: 1.5rem;">
+      <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 0.6rem; color: #2c2c2a;">画像を追加・変更（任意）</label>
+      <div id="modalUploadArea" class="modal-upload-area" ondrop="handleModalDrop(event)" ondragover="handleModalDragOver(event)" ondragleave="handleModalDragLeave(event)" onclick="document.getElementById('modalImageInput').click()">
+        <div style="font-size: 24px; margin-bottom: 0.3rem;">📸</div>
+        <div style="font-size: 12px; color: #2c2c2a;">ドラッグ&ドロップまたはクリック</div>
+      </div>
+      <input type="file" id="modalImageInput" style="display: none;" accept="image/*" onchange="handleModalImageSelect(event)">
+    </div>
+
+    <div style="margin-bottom: 1.5rem;">
+      <label style="display: block; font-size: 14px; font-weight: 600; margin-bottom: 0.6rem; color: #2c2c2a;">カテゴリ</label>
+      <select id="modalCategory" style="width: 100%; padding: 0.9rem; border: 1px solid #ddd; border-radius: 8px; font-family: inherit; font-size: 14px; background: #fafaf8;">
+        <option value="">選択してください</option>
+        <option value="main">メイン料理</option>
+        <option value="side">副菜</option>
+        <option value="dessert">お菓子</option>
+        <option value="bread">パン</option>
+        <option value="soup">スープ・汁物</option>
+        <option value="salad">サラダ</option>
+        <option value="kickboxing">キックボクシング</option>
+        <option value="ai">AI</option>
+        <option value="beauty">美容</option>
+        <option value="drink">ドリンク</option>
+        <option value="other">その他</option>
+      </select>
+    </div>
+
+    <div style="margin-bottom: 1.5rem;">
+      <label style="display: block; font-size: 14px; font-weight: 600; margin-bottom: 0.6rem; color: #2c2c2a;">メモ</label>
+      <textarea id="modalMemo" style="width: 100%; padding: 0.9rem; border: 1px solid #ddd; border-radius: 8px; font-family: inherit; min-height: 150px; font-size: 14px; background: #fafaf8;"></textarea>
+    </div>
+
+    <div class="modal-actions">
+      <button class="primary" style="flex: 1;" onclick="saveEditedMemo()">保存</button>
+      <button style="flex: 1;" onclick="closeModal()">キャンセル / 閉じる</button>
+    </div>
+  </div>
+  <footer class="site-footer">© 2026 インスタセーバー. All rights reserved.</footer>
+</div>
+
+
+  <div id="customToast" class="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL = 'https://vwfzlcgfgffknpmselzy.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_0LpdSdGbLIcC0P5rkVXgpg_1SN3sR-p';
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const CUSTOM_CATEGORIES_KEY = 'instaSaverCustomCategories';
+
+function getBuiltInCategories() {
+  return [
+    { value: 'snack', label: 'おやつ' },
+    { value: 'main', label: 'メイン' },
+    { value: 'side', label: '副菜' },
+    { value: 'soup', label: 'スープ・汁物' },
+    { value: 'kickboxing', label: 'キックボクシング' },
+    { value: 'it', label: 'IT関連' },
+    { value: 'beauty', label: '美容' },
+    { value: 'other', label: 'その他' }
+  ];
+}
+
+function loadCustomCategories() {
+  return [];
+}
+
+function saveCustomCategories(categories) {
+  return;
+}
+
+function slugifyCategoryLabel(label) {
+  return label
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9\-ぁ-んァ-ヶー一-龠]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '') || `custom-${Date.now()}`;
+}
+
+function getAllCategories() {
+  const builtIn = getBuiltInCategories();
+  const custom = loadCustomCategories();
+  return [...builtIn, ...custom];
+}
+
+function refreshCategorySelects(selectedMain = null, selectedModal = null) {
+  const allCategories = getAllCategories();
+  const selects = [
+    { id: 'category', selected: selectedMain },
+    { id: 'modalCategory', selected: selectedModal }
+  ];
+
+  selects.forEach(({ id, selected }) => {
+    const select = document.getElementById(id);
+    if (!select) return;
+
+    const currentValue = selected !== null ? selected : select.value;
+    select.innerHTML = '<option value="">選択してください</option>' +
+      allCategories.map(cat => `<option value="${cat.value}">${cat.label}</option>`).join('');
+
+    if (allCategories.some(cat => cat.value === currentValue)) {
+      select.value = currentValue;
+    } else if (currentValue === '') {
+      select.value = '';
+    }
+  });
+
+  renderCategoryTabs();
+}
+
+function addCustomCategory(isModal = false) {
+  return;
+}
+
+function renderCategoryTabs() {
+  const select = document.getElementById('categoryFilterSelect');
+  if (!select) return;
+
+  const allCategories = getBuiltInCategories();
+  select.innerHTML = '<option value="">すべて</option><option value="favorites">お気に入り</option>' +
+    allCategories.map(cat => `<option value="${cat.value}">${cat.label}</option>`).join('');
+
+  select.value = currentFilterCategory || '';
+}
+
+function getDomainFromUrl(url) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return '';
+  }
+}
+
+function getDisplayTitle(recipe) {
+  if (recipe.memo && recipe.memo.trim()) return recipe.memo.trim();
+
+  if (recipe.post_url) {
+    try {
+      const url = new URL(recipe.post_url);
+      const segments = url.pathname.split('/').filter(Boolean);
+      const type = segments[0] || 'post';
+      const id = segments[1] || '';
+      const typeLabelMap = { reels: 'リール', reel: 'リール', p: '投稿', tv: '動画' };
+      return `Instagram ${typeLabelMap[type] || '投稿'} ${id ? ' / ' + id : ''}`.trim();
+    } catch {
+      return 'Instagram 投稿';
+    }
+  }
+
+  return '保存済み投稿';
+}
+
+let currentEditId = null;
+let currentImageFile = null;
+let modalImageFile = null;
+let currentFilterCategory = '';
+let currentSearchQuery = '';
+
+function getCategoryLabel(category) {
+  const legacyMap = {
+    dessert: 'おやつ',
+    ai: 'IT関連',
+    salad: 'その他',
+    bread: 'その他',
+    drink: 'その他'
+  };
+  const normalized = legacyMap[category] ? Object.keys(legacyMap).find(key => key === category) : category;
+  if (legacyMap[category]) return legacyMap[category];
+  const found = getAllCategories().find(cat => cat.value === category);
+  return found ? found.label : category;
+}
+
+function normalizeInstagramUrl(rawUrl) {
+  const value = (rawUrl || '').trim();
+  if (!value) return '';
+
+  try {
+    const url = new URL(value);
+    return `${url.origin}${url.pathname}`;
+  } catch {
+    return value;
+  }
+}
+
+async function loadRecipes() {
+  const { data, error } = await supabaseClient
+    .from('recipes')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('データ読み込みエラー:', error);
+    alert('データの読み込みに失敗しました');
+    return [];
+  }
+
+  return (data || []).map(item => ({
+    ...item,
+    favorite: !!item.favorite
+  }));
+}
+
+async function uploadImage(file) {
+  if (!file) return null;
+
+  const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+  const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+  const filePath = `public/${fileName}`;
+
+  const { error: uploadError } = await supabaseClient
+    .storage
+    .from('recipe-images')
+    .upload(filePath, file, {
+      cacheControl: '3600',
+      upsert: false
+    });
+
+  if (uploadError) {
+    console.error('画像アップロードエラー:', uploadError);
+    throw new Error('画像アップロードに失敗しました');
+  }
+
+  const { data } = supabaseClient
+    .storage
+    .from('recipe-images')
+    .getPublicUrl(filePath);
+
+  return data.publicUrl;
+}
+
+function handleDragOver(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  document.getElementById('uploadArea').classList.add('dragover');
+}
+
+function handleDragLeave(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  document.getElementById('uploadArea').classList.remove('dragover');
+}
+
+function handleDrop(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  document.getElementById('uploadArea').classList.remove('dragover');
+
+  const files = event.dataTransfer.files;
+  if (files.length > 0) {
+    handleImageFile(files[0]);
+  }
+}
+
+function handleImageSelect(event) {
+  const files = event.target.files;
+  if (files.length > 0) {
+    handleImageFile(files[0]);
+  }
+}
+
+function handleImageFile(file) {
+  if (!file.type.startsWith('image/')) {
+    alert('画像ファイルを選択してください');
+    return;
+  }
+
+  currentImageFile = file;
+  const objectUrl = URL.createObjectURL(file);
+  document.getElementById('previewImg').src = objectUrl;
+  document.getElementById('imagePreview').style.display = 'block';
+  document.getElementById('uploadArea').style.display = 'none';
+}
+
+function clearImage() {
+  currentImageFile = null;
+  document.getElementById('imageInput').value = '';
+  document.getElementById('imagePreview').style.display = 'none';
+  document.getElementById('previewImg').src = '';
+  document.getElementById('uploadArea').style.display = 'block';
+}
+
+function handleModalDragOver(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  document.getElementById('modalUploadArea').classList.add('dragover');
+}
+
+function handleModalDragLeave(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  document.getElementById('modalUploadArea').classList.remove('dragover');
+}
+
+function handleModalDrop(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  document.getElementById('modalUploadArea').classList.remove('dragover');
+
+  const files = event.dataTransfer.files;
+  if (files.length > 0) {
+    handleModalImageFile(files[0]);
+  }
+}
+
+function handleModalImageSelect(event) {
+  const files = event.target.files;
+  if (files.length > 0) {
+    handleModalImageFile(files[0]);
+  }
+}
+
+function handleModalImageFile(file) {
+  if (!file.type.startsWith('image/')) {
+    alert('画像ファイルを選択してください');
+    return;
+  }
+
+  modalImageFile = file;
+  const objectUrl = URL.createObjectURL(file);
+  const preview = document.getElementById('modalThumbnail');
+  preview.innerHTML = `<img src="${objectUrl}" alt="thumbnail">`;
+}
+
+async function saveRecipe() {
+  const url = normalizeInstagramUrl(document.getElementById('postUrl').value);
+  const memo = document.getElementById('memo').value.trim();
+  const category = document.getElementById('category').value;
+
+  if (!url && !currentImageFile) {
+    alert('投稿URLまたは画像をアップロードしてください');
+    return;
+  }
+
+  try {
+    let thumbnailUrl = null;
+
+    if (currentImageFile) {
+      thumbnailUrl = await uploadImage(currentImageFile);
+    }
+
+    const { error } = await supabaseClient
+      .from('recipes')
+      .insert([{
+        post_url: url,
+        category: category,
+        memo: memo,
+        thumbnail_url: thumbnailUrl,
+        saved_date: new Date().toLocaleDateString('ja-JP', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit'
+        })
+      }]);
+
+    if (error) {
+      console.error('保存エラー:', error);
+      alert('保存に失敗しました');
+      return;
+    }
+
+    clearForm();
+    await renderRecipes(currentFilterCategory);
+    showToast('✔ 保存しました！');
+  } catch (err) {
+    console.error(err);
+    alert(err.message || '保存中にエラーが発生しました');
+  }
+}
+
+function clearForm() {
+  document.getElementById('postUrl').value = '';
+  document.getElementById('memo').value = '';
+  document.getElementById('category').value = '';
+  clearImage();
+  document.getElementById('postUrl').focus();
+}
+
+async function deleteRecipe(id, event) {
+  if (event) event.stopPropagation();
+  if (!confirm('このレシピを削除しますか？')) return;
+
+  const { error } = await supabaseClient
+    .from('recipes')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('削除エラー:', error);
+    alert('削除に失敗しました');
+    return;
+  }
+
+  await renderRecipes(currentFilterCategory);
+}
+
+function handleSearchInput(value) {
+  currentSearchQuery = (value || '').trim().toLowerCase();
+  renderRecipes(currentFilterCategory);
+}
+
+async function filterRecipes(category, clickedButton = null) {
+  currentFilterCategory = category;
+
+  const select = document.getElementById('categoryFilterSelect');
+  if (select && select.value !== category) {
+    select.value = category;
+  }
+
+  await renderRecipes(category);
+}
+
+async function openEditModal(id, event) {
+  event.stopPropagation();
+
+  const recipes = await loadRecipes();
+  const recipe = recipes.find(r => r.id === id);
+  if (!recipe) return;
+
+  currentEditId = id;
+  modalImageFile = null;
+  document.getElementById('modalMemo').value = recipe.memo || '';
+  document.getElementById('modalCategory').value = recipe.category || '';
+
+  const preview = document.getElementById('modalThumbnail');
+  if (recipe.thumbnail_url) {
+    preview.classList.remove('no-image');
+    preview.innerHTML = `<img src="${recipe.thumbnail_url}" alt="thumbnail">`;
+  } else {
+    preview.classList.add('no-image');
+    preview.innerHTML = '<div class="placeholder-card"><div class="no-image-logo">NO IMAGE</div></div>';
+  }
+
+  document.getElementById('editModal').classList.add('active');
+  document.body.classList.add('modal-open');
+}
+
+function closeModal() {
+  document.getElementById('editModal').classList.remove('active');
+  document.body.classList.remove('modal-open');
+  currentEditId = null;
+  modalImageFile = null;
+}
+
+async function saveEditedMemo() {
+  const memo = document.getElementById('modalMemo').value.trim();
+  const category = document.getElementById('modalCategory').value;
+
+  try {
+    const updateData = {
+      memo: memo,
+      category: category
+    };
+
+    if (modalImageFile) {
+      const thumbnailUrl = await uploadImage(modalImageFile);
+      updateData.thumbnail_url = thumbnailUrl;
+    }
+
+    const { error } = await supabaseClient
+      .from('recipes')
+      .update(updateData)
+      .eq('id', currentEditId);
+
+    if (error) {
+      console.error('更新エラー:', error);
+      alert('更新に失敗しました');
+      return;
+    }
+
+    closeModal();
+    await renderRecipes(currentFilterCategory);
+    showToast('✔ 更新しました！');
+  } catch (err) {
+    console.error(err);
+    alert(err.message || '更新中にエラーが発生しました');
+  }
+}
+
+async function toggleFavorite(id, currentValue, event) {
+  if (event) event.stopPropagation();
+
+  try {
+    const { error } = await supabaseClient
+      .from('recipes')
+      .update({ favorite: !currentValue })
+      .eq('id', id);
+
+    if (error) {
+      console.error('お気に入り更新エラー:', error);
+      alert('お気に入り機能を使うには、Supabase の recipes テーブルに favorite 列を追加してください。');
+      return;
+    }
+
+    await renderRecipes(currentFilterCategory);
+  } catch (err) {
+    console.error(err);
+    alert('お気に入り更新に失敗しました');
+  }
+}
+
+function openLink(url, event) {
+  if (event) event.stopPropagation();
+  if (url) {
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
+}
+
+function openEditFromCard(id, event) {
+  if (event) event.stopPropagation();
+  openEditModal(id, event || { stopPropagation() {} });
+}
+
+async function renderRecipes(category = '') {
+  let recipes = await loadRecipes();
+
+  if (category) {
+    if (category === 'favorites') {
+      recipes = recipes.filter(r => !!r.favorite);
+    } else {
+      const legacyFilterMap = {
+        snack: ['snack', 'dessert'],
+        it: ['it', 'ai'],
+        other: ['other', 'salad', 'bread', 'drink']
+      };
+      const allowed = legacyFilterMap[category] || [category];
+      recipes = recipes.filter(r => allowed.includes(r.category));
+    }
+  }
+
+  if (currentSearchQuery) {
+    recipes = recipes.filter(r => {
+      const categoryLabel = (getCategoryLabel(r.category || '') || '').toLowerCase();
+      const memo = (r.memo || '').toLowerCase();
+      const url = (r.post_url || '').toLowerCase();
+      return memo.includes(currentSearchQuery) ||
+             url.includes(currentSearchQuery) ||
+             categoryLabel.includes(currentSearchQuery);
+    });
+  }
+
+  const grid = document.getElementById('recipesGrid');
+  const count = document.getElementById('recipeCount');
+
+  count.textContent = `${recipes.length}件`;
+
+  if (recipes.length === 0) {
+    grid.innerHTML = `
+      <div class="empty-state">
+        <span class="empty-state-icon">📝</span>
+        <p>お気に入り投稿をまだ保存していません</p>
+      </div>
+    `;
+    return;
+  }
+
+  grid.innerHTML = recipes.map(recipe => `
+    <div class="recipe-card">
+      <div class="recipe-image-wrapper ${recipe.thumbnail_url ? '' : 'no-image'} ${recipe.post_url ? 'recipe-image-link' : ''}" ${recipe.post_url ? `title="クリックで投稿を開く" onclick="openLink('${recipe.post_url.replace(/'/g, "\\'")}', event)"` : ''}>
+        ${recipe.thumbnail_url ? `
+          <img src="${recipe.thumbnail_url}" alt="post thumbnail" onerror="this.parentElement.classList.add('no-image'); this.parentElement.innerHTML = createPlaceholderCardHtml('${encodeURIComponent(JSON.stringify(recipe)).replace(/'/g, "%27")}');">
+        ` : createPlaceholderCardHtml(encodeURIComponent(JSON.stringify(recipe)))}
+      </div>
+
+      <div class="recipe-content">
+        <div class="recipe-edit-zone" onclick="openEditFromCard(${recipe.id}, event)">
+          ${recipe.category ? `<div class="recipe-category">${getCategoryLabel(recipe.category)}</div>` : ''}
+          <div class="recipe-memo ${recipe.memo ? '' : 'empty'}">
+            ${recipe.memo ? recipe.memo.substring(0, 100) : 'メモなし'}
+          </div>
+        </div>
+
+        <div class="recipe-footer">
+          <div class="recipe-date">📅 ${recipe.saved_date || ''}</div>
+          <div class="footer-actions">
+            <button class="delete-btn" onclick="deleteRecipe(${recipe.id}, event)" title="削除">🗑️</button>
+            <button class="favorite-btn ${recipe.favorite ? 'active' : ''}" onclick="toggleFavorite(${recipe.id}, ${recipe.favorite ? 'true' : 'false'}, event)" title="お気に入り">${recipe.favorite ? '★' : '☆'}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `).join('');;
+}
+
+function createPlaceholderCardHtml(encodedRecipe) {
+  let recipe = {};
+  try {
+    recipe = JSON.parse(decodeURIComponent(encodedRecipe));
+  } catch {}
+
+  const label = recipe.category ? getCategoryLabel(recipe.category) : 'NO IMAGE';
+
+  return `
+    <div class="placeholder-card">
+      <div class="no-image-logo">${escapeHtml(label)}</div>
+    </div>
+  `;
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function showToast(message) {
+  const toast = document.getElementById('customToast');
+  if (!toast) return;
+
+  toast.textContent = message;
+  toast.classList.add('show');
+
+  clearTimeout(showToast._timer);
+  showToast._timer = setTimeout(() => {
+    toast.classList.remove('show');
+  }, 2000);
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    closeModal();
+  }
+});
+
+document.addEventListener('DOMContentLoaded', async () => {
+  refreshCategorySelects();
+  await renderRecipes();
+});
+</script>
+
+</body>
+</html>
