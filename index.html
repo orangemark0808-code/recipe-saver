@@ -3,24 +3,39 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#D4764E">
-<meta name="description" content="Instagramの投稿をスクリーンショットで保存・管理">
-<title>インスタセーバー - Instagram投稿管理</title>
+<meta name="theme-color" content="#FF7F00">
+<meta name="description" content="Instagramのお気に入り投稿を保存・管理">
+<title>Recipe Saver</title>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,600;1,400&family=DM+Mono:wght@300;400&family=Nunito:wght@300;400;500;600;800&display=swap" rel="stylesheet">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  
+
+  :root {
+    --bg: #FAF8F4;
+    --surface: #FFFFFF;
+    --surface2: #F0EDE8;
+    --border: #E8E4DC;
+    --accent: #FF7F00;
+    --accent-dark: #E07000;
+    --accent-light: #FFF3E0;
+    --text: #3a2a1a;
+    --muted: #9a8878;
+    --radius: 14px;
+    --shadow: 0 2px 14px rgba(255,127,0,0.07);
+  }
+
   html, body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif;
-    background: #f8f7f3;
-    color: #2c2c2a;
-    line-height: 1.6;
+    font-family: 'Nunito', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
     min-height: 100vh;
   }
 
   .container {
     max-width: 1000px;
     margin: 0 auto;
-    padding: 1.5rem;
+    padding: 2rem 1.5rem;
   }
 
   body.modal-open {
@@ -30,36 +45,60 @@
 
   .header {
     text-align: center;
-    margin-bottom: 2.5rem;
-    padding: 2rem;
-    background: linear-gradient(135deg, #D4764E 0%, #E89B66 100%);
-    border-radius: 16px;
+    margin-bottom: 3rem;
+    padding: 3rem 2rem;
+    background: var(--accent);
+    border-radius: var(--radius);
     color: white;
-    box-shadow: 0 2px 8px rgba(212, 118, 78, 0.15);
+    box-shadow: var(--shadow);
+  }
+
+  .header-badge {
+    display: inline-block;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    font-weight: 400;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 0.35rem 0.9rem;
+    border: 1px solid rgba(255,255,255,0.45);
+    border-radius: 999px;
+    margin-bottom: 1.25rem;
+    opacity: 0.92;
   }
 
   .header h1 {
-    font-size: 32px;
-    font-weight: 700;
-    margin-bottom: 0.5rem;
+    font-family: 'Lora', serif;
+    font-size: 40px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin-bottom: 0.75rem;
+  }
+
+  .header h1 span {
+    font-style: italic;
+    color: var(--accent-light);
   }
 
   .header p {
-    font-size: 14px;
-    opacity: 0.95;
+    font-family: 'Nunito', sans-serif;
+    font-size: 15px;
+    font-weight: 300;
+    line-height: 1.7;
+    opacity: 0.92;
   }
 
   .input-section {
-    background: white;
-    border: 1px solid #ddd;
-    border-radius: 12px;
-    padding: 2rem;
-    margin-bottom: 2rem;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 2.5rem;
+    margin-bottom: 2.5rem;
+    box-shadow: var(--shadow);
   }
 
   .input-group {
-    margin-bottom: 1.5rem;
+    margin-bottom: 1.75rem;
   }
 
   .input-group:last-child {
@@ -68,10 +107,13 @@
 
   label {
     display: block;
-    font-size: 14px;
-    font-weight: 600;
-    margin-bottom: 0.6rem;
-    color: #2c2c2a;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    font-weight: 400;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 0.7rem;
+    color: var(--muted);
   }
 
   input[type="text"],
@@ -79,13 +121,15 @@
   textarea,
   select {
     width: 100%;
-    padding: 0.9rem;
-    border: 1px solid #ddd;
+    padding: 0.9rem 1rem;
+    border: 1px solid var(--border);
     border-radius: 8px;
     font-size: 14px;
-    font-family: inherit;
+    font-family: 'Nunito', sans-serif;
+    line-height: 1.7;
     transition: all 0.2s;
-    background: #fafaf8;
+    background: var(--surface2);
+    color: var(--text);
   }
 
   input[type="text"]:focus,
@@ -93,9 +137,9 @@
   textarea:focus,
   select:focus {
     outline: none;
-    border-color: #D4764E;
-    background: white;
-    box-shadow: 0 0 0 3px rgba(212, 118, 78, 0.1);
+    border-color: var(--accent);
+    background: var(--surface);
+    box-shadow: 0 0 0 3px var(--accent-light);
   }
 
   textarea {
@@ -106,24 +150,24 @@
 
   .upload-area {
     width: 100%;
-    border: 2px dashed #ddd;
-    border-radius: 8px;
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
     padding: 2rem;
     text-align: center;
     cursor: pointer;
     transition: all 0.3s;
-    background: #fafaf8;
+    background: var(--surface2);
   }
 
   .upload-area:hover {
-    border-color: #D4764E;
-    background: #f5ede3;
+    border-color: var(--accent);
+    background: var(--accent-light);
   }
 
   .upload-area.dragover {
-    border-color: #D4764E;
-    background: #f0e6d8;
-    box-shadow: 0 0 0 3px rgba(212, 118, 78, 0.1);
+    border-color: var(--accent);
+    background: var(--accent-light);
+    box-shadow: 0 0 0 3px var(--accent-light);
   }
 
   .upload-area-content {
@@ -141,10 +185,11 @@
     flex: 1;
     min-width: 120px;
     padding: 0.9rem 1.5rem;
-    border: 1px solid #ddd;
+    border: 1px solid var(--border);
     border-radius: 8px;
-    background: white;
-    color: #2c2c2a;
+    background: var(--surface);
+    color: var(--text);
+    font-family: 'Nunito', sans-serif;
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
@@ -152,8 +197,8 @@
   }
 
   button:hover {
-    background: #f0ede7;
-    border-color: #D4764E;
+    background: var(--surface2);
+    border-color: var(--accent);
   }
 
   button:active {
@@ -161,13 +206,14 @@
   }
 
   button.primary {
-    background: #D4764E;
+    background: var(--accent);
     color: white;
-    border-color: #D4764E;
+    border-color: var(--accent);
+    border-radius: 8px;
   }
 
   button.primary:hover {
-    background: #C1664A;
+    background: var(--accent-dark);
   }
 
   .recipes-section {
@@ -184,17 +230,20 @@
   }
 
   .recipes-header h2 {
-    font-size: 22px;
-    font-weight: 700;
+    font-family: 'Lora', serif;
+    font-size: 24px;
+    font-weight: 600;
   }
 
   .recipe-count {
-    font-size: 13px;
-    color: #888780;
-    background: #f0ede7;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    background: var(--surface2);
     padding: 0.5rem 1rem;
-    border-radius: 20px;
-    font-weight: 600;
+    border-radius: 999px;
+    font-weight: 400;
   }
 
   .filter-select-wrap {
@@ -204,15 +253,16 @@
   .category-filter-select {
     width: 100%;
     padding: 0.95rem 1rem;
-    border: 1px solid #ddd;
-    border-radius: 16px;
-    background: #f0ede7;
-    color: #2c2c2a;
-    font-size: 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface2);
+    color: var(--text);
+    font-family: 'Nunito', sans-serif;
+    font-size: 15px;
     font-weight: 600;
     appearance: none;
     -webkit-appearance: none;
-    background-image: linear-gradient(45deg, transparent 50%, #8a7f76 50%), linear-gradient(135deg, #8a7f76 50%, transparent 50%);
+    background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
     background-position: calc(100% - 22px) calc(50% - 3px), calc(100% - 16px) calc(50% - 3px);
     background-size: 6px 6px, 6px 6px;
     background-repeat: no-repeat;
@@ -220,9 +270,9 @@
 
   .category-filter-select:focus {
     outline: none;
-    border-color: #D4764E;
-    box-shadow: 0 0 0 3px rgba(212, 118, 78, 0.1);
-    background-color: #fff;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-light);
+    background-color: var(--surface);
   }
 
   .search-box {
@@ -232,30 +282,20 @@
   .search-box input {
     width: 100%;
     padding: 0.95rem 1rem;
-    border: 1px solid #ddd;
-    border-radius: 16px;
-    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
     font-size: 15px;
   }
 
   .search-box input:focus {
     outline: none;
-    border-color: #D4764E;
-    box-shadow: 0 0 0 3px rgba(212, 118, 78, 0.1);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-light);
   }
 
   .tabs {
     display: none !important;
-  }
-
-  .tabs {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.25rem;
-    margin-bottom: 1rem;
-    border-bottom: 2px solid #e8e6e0;
-    overflow-x: visible;
-    padding-bottom: 0;
   }
 
   .tab-button {
@@ -263,7 +303,7 @@
     background: none;
     padding: 0.5rem 0.75rem;
     font-size: 13px;
-    color: #888780;
+    color: var(--muted);
     cursor: pointer;
     border-bottom: 3px solid transparent;
     transition: all 0.2s;
@@ -272,12 +312,12 @@
   }
 
   .tab-button.active {
-    color: #D4764E;
-    border-bottom-color: #D4764E;
+    color: var(--accent);
+    border-bottom-color: var(--accent);
   }
 
   .tab-button:hover:not(.active) {
-    color: #2c2c2a;
+    color: var(--text);
   }
 
   @media (max-width: 480px) {
@@ -303,13 +343,13 @@
       grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
       gap: 1rem;
     }
-    
+
     .input-section {
       padding: 1.5rem;
     }
 
     .header h1 {
-      font-size: 24px;
+      font-size: 28px;
     }
   }
 
@@ -320,20 +360,20 @@
     }
 
     .container {
-      padding: 1rem;
+      padding: 1.5rem 1rem;
     }
 
     .header {
-      padding: 1.5rem;
-      margin-bottom: 1.5rem;
+      padding: 2rem 1.5rem;
+      margin-bottom: 2rem;
     }
 
     .header h1 {
-      font-size: 24px;
+      font-size: 26px;
     }
 
     .input-section {
-      padding: 1rem;
+      padding: 1.5rem;
     }
 
     button {
@@ -351,19 +391,19 @@
   }
 
   .recipe-card {
-    background: white;
-    border: 1px solid #ddd;
-    border-radius: 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
     overflow: hidden;
     transition: all 0.3s ease;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    box-shadow: var(--shadow);
     display: flex;
     flex-direction: column;
   }
 
   .recipe-card:hover {
-    border-color: #D4764E;
-    box-shadow: 0 4px 12px rgba(212, 118, 78, 0.12);
+    border-color: var(--accent);
+    box-shadow: 0 4px 18px rgba(255,127,0,0.12);
   }
 
   .recipe-image-link {
@@ -371,7 +411,7 @@
   }
 
   .recipe-image-link:hover::before {
-    background: rgba(0,0,0,0.12);
+    background: rgba(58,42,26,0.08);
   }
 
   .recipe-image-wrapper {
@@ -379,7 +419,7 @@
     width: 100%;
     aspect-ratio: 1 / 1;
     overflow: hidden;
-    background: linear-gradient(135deg, #F5E6D3 0%, #E8D4B8 100%);
+    background: var(--surface2);
   }
 
   .recipe-image-wrapper img {
@@ -402,23 +442,13 @@
     z-index: 1;
   }
 
-  
-
   .recipe-image-wrapper.no-image {
-  background: linear-gradient(135deg, #f3efe9, #e9e4dc);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border-bottom: 1px solid #f0e6dd;
-}
-
-  .recipe-image-wrapper.no-image::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(circle at top right, rgba(212,118,78,0.18), transparent 60%);
-    pointer-events: none;
+    background: var(--surface2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border-bottom: 1px solid var(--border);
   }
 
   .placeholder-card {
@@ -442,37 +472,42 @@
     justify-content: center;
     gap: 0.45rem;
     font-weight: 700;
-    color: #8d5b43;
+    color: var(--text);
     font-size: 14px;
   }
 
-  .placeholder-icon {
-    font-size: 26px;
-    line-height: 1;
-  }
-
   .placeholder-domain {
-    font-size: 12px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.05em;
     line-height: 1.6;
-    color: #8a7f76;
-    font-weight: 600;
+    color: var(--muted);
+    font-weight: 400;
   }
 
   .placeholder-sub {
-    font-size: 12px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.05em;
     line-height: 1.6;
-    color: #8a7f76;
-    font-weight: 600;
+    color: var(--muted);
+    font-weight: 400;
+  }
+
+  .no-image-logo {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 400;
   }
 
   .recipe-content {
-    padding: 0.75rem;
+    padding: 1rem;
     flex: 1;
     display: flex;
     flex-direction: column;
-  }
-
-  .recipe-content {
     cursor: default;
   }
 
@@ -487,53 +522,46 @@
 
   .recipe-edit-zone:hover .recipe-memo,
   .recipe-edit-zone:hover .recipe-category {
-    border-color: #e3c2b0;
-    background: #fcfaf7;
+    border-color: var(--accent);
+    background: var(--accent-light);
   }
-
 
   .recipe-category {
     display: inline-block;
-    font-size: 11px;
-    font-weight: 600;
-    background: #f0ede7;
-    color: #D4764E;
-    padding: 0.25rem 0.6rem;
-    border-radius: 12px;
-    margin-bottom: 0.35rem;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-weight: 400;
+    background: var(--accent-light);
+    color: var(--accent-dark);
+    padding: 0.3rem 0.7rem;
+    border-radius: 999px;
+    margin-bottom: 0.5rem;
     width: fit-content;
   }
 
   .recipe-memo {
-    font-size: 11px;
-    color: #5f5e5a;
-    background: #fafaf8;
-    padding: 0.5rem;
-    border-radius: 4px;
+    font-family: 'Nunito', sans-serif;
+    font-size: 12px;
+    color: var(--text);
+    background: var(--surface2);
+    padding: 0.6rem;
+    border-radius: 8px;
     margin-bottom: 0.5rem;
-    border: 1px solid #e8e6e0;
+    border: 1px solid var(--border);
     min-height: 40px;
     max-height: 70px;
     overflow-y: auto;
-    line-height: 1.3;
+    line-height: 1.6;
     word-break: break-word;
     white-space: pre-wrap;
   }
 
   .recipe-memo.empty {
-    color: #888780;
+    color: var(--muted);
     font-style: italic;
     min-height: auto;
-  }
-
-  .recipe-edit-zone {
-    cursor: pointer;
-  }
-
-  .recipe-edit-zone:hover .recipe-memo,
-  .recipe-edit-zone:hover .recipe-category {
-    border-color: #e3c2b0;
-    background: #fcfaf7;
   }
 
   .footer-actions {
@@ -542,15 +570,9 @@
     gap: 0.55rem;
   }
 
-  @media (max-width: 480px) {
-    .footer-actions {
-      gap: 0.45rem;
-    }
-  }
-
   .recipe-footer {
-    border-top: 1px solid #e8e6e0;
-    padding-top: 0.5rem;
+    border-top: 1px solid var(--border);
+    padding-top: 0.6rem;
     margin-top: auto;
     display: flex;
     justify-content: space-between;
@@ -558,34 +580,17 @@
     gap: 0.2rem;
   }
 
-  @media (max-width: 480px) {
-    .footer-actions {
-    display: flex;
-    align-items: center;
-    gap: 0.55rem;
-  }
-
-  @media (max-width: 480px) {
-    .footer-actions {
-      gap: 0.45rem;
-    }
-  }
-
-  .recipe-footer {
-      gap: 0.5rem;
-    }
-  }
-
   .recipe-date {
+    font-family: 'DM Mono', monospace;
     font-size: 10px;
-    color: #888780;
+    color: var(--muted);
     flex: 1;
   }
 
   .favorite-btn, .delete-btn {
     background: none;
     border: none;
-    color: #888780;
+    color: var(--muted);
     cursor: pointer;
     padding: 0;
     margin: 0;
@@ -601,15 +606,19 @@
     box-shadow: none;
     appearance: none;
     -webkit-appearance: none;
+    font-family: 'Nunito', sans-serif;
   }
 
   .favorite-btn {
-    font-size: clamp(22px, 5.2vw, 28px);
+    font-size: clamp(18px, 4vw, 22px);
     min-width: 28px;
   }
 
   .delete-btn {
-    font-size: clamp(16px, 3.8vw, 20px);
+    font-size: clamp(13px, 3vw, 15px);
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
     min-width: 22px;
   }
 
@@ -618,21 +627,21 @@
   }
 
   .favorite-btn.active {
-    color: #facc15;
+    color: var(--accent);
   }
 
   .delete-btn:hover {
-    color: #E24B4A;
+    color: var(--accent);
   }
 
   @media (max-width: 480px) {
     .favorite-btn {
-      font-size: 24px;
+      font-size: 20px;
       min-width: 26px;
     }
 
     .delete-btn {
-      font-size: 17px;
+      font-size: 13px;
       min-width: 20px;
     }
   }
@@ -641,34 +650,40 @@
     grid-column: 1/-1;
     text-align: center;
     padding: 3rem 1rem;
-    color: #888780;
+    color: var(--muted);
   }
 
   .empty-state-icon {
-    font-size: 56px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
     margin-bottom: 1rem;
     display: block;
   }
 
   .empty-state p {
     font-size: 14px;
+    line-height: 1.7;
   }
 
   .info-message {
-    background: #fafaf8;
-    border-left: 4px solid #D4764E;
-    padding: 1rem;
-    margin-bottom: 1.5rem;
-    border-radius: 4px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    padding: 1.1rem 1.25rem;
+    margin-bottom: 1.75rem;
+    border-radius: var(--radius);
     font-size: 13px;
-    color: #5f5e5a;
+    line-height: 1.7;
+    color: var(--muted);
   }
 
   .modal {
     display: none;
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.58);
+    background: rgba(58, 42, 26, 0.45);
     z-index: 1000;
     align-items: center;
     justify-content: center;
@@ -680,27 +695,28 @@
   }
 
   .modal-content {
-    background: white;
-    border-radius: 18px;
+    background: var(--surface);
+    border-radius: var(--radius);
     padding: 1.5rem;
     width: min(860px, 100%);
     max-height: min(92vh, 100dvh - 24px);
     overflow-y: auto;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.22);
+    box-shadow: 0 12px 40px rgba(58, 42, 26, 0.18);
     position: relative;
   }
 
   .modal-header {
+    font-family: 'Lora', serif;
     font-size: 20px;
-    font-weight: 700;
+    font-weight: 600;
     margin-bottom: 1.25rem;
-    color: #2c2c2a;
+    color: var(--text);
     padding-right: 2.5rem;
     position: sticky;
     top: 0;
-    background: white;
+    background: var(--surface);
     z-index: 2;
   }
 
@@ -710,14 +726,14 @@
     float: right;
     margin-left: auto;
     margin-top: -0.25rem;
-    background: #fff;
-    border: 1px solid #e6ddd6;
+    background: var(--surface);
+    border: 1px solid var(--border);
     border-radius: 999px;
     width: 42px;
     height: 42px;
     min-width: 42px;
-    font-size: 24px;
-    color: #888780;
+    font-size: 20px;
+    color: var(--muted);
     cursor: pointer;
     z-index: 3;
     display: flex;
@@ -726,8 +742,8 @@
   }
 
   .modal-close:hover {
-    color: #2c2c2a;
-    background: #faf7f4;
+    color: var(--accent);
+    background: var(--accent-light);
   }
 
   @media (max-width: 768px) {
@@ -735,7 +751,7 @@
       padding: 0 !important;
       align-items: stretch !important;
       justify-content: stretch !important;
-      background: rgba(0, 0, 0, 0.45);
+      background: rgba(58, 42, 26, 0.35);
     }
 
     .modal-content {
@@ -754,7 +770,7 @@
     }
 
     .modal-header {
-      font-size: 24px;
+      font-size: 22px;
       margin-bottom: 0.85rem;
       padding-right: 0;
     }
@@ -766,7 +782,7 @@
     .thumbnail-preview {
       width: 100%;
       height: min(44vh, 420px);
-      border-radius: 12px;
+      border-radius: var(--radius);
       margin-bottom: 1rem;
     }
 
@@ -778,7 +794,7 @@
     #modalMemo {
       min-height: 36vh !important;
       font-size: 16px !important;
-      line-height: 1.65;
+      line-height: 1.7;
     }
   }
 
@@ -796,8 +812,8 @@
   .thumbnail-preview {
     width: 100%;
     height: 200px;
-    background: linear-gradient(135deg, #F5E6D3 0%, #E8D4B8 100%);
-    border-radius: 8px;
+    background: var(--surface2);
+    border-radius: var(--radius);
     margin-bottom: 1.5rem;
     display: flex;
     align-items: center;
@@ -812,8 +828,8 @@
   }
 
   .thumbnail-preview.no-image {
-    background: linear-gradient(135deg, #f3efe9, #e9e4dc);
-    border: 1px solid #f0e6dd;
+    background: var(--surface2);
+    border: 1px solid var(--border);
     font-size: initial;
     color: inherit;
   }
@@ -834,19 +850,19 @@
 
   .modal-upload-area {
     width: 100%;
-    border: 2px dashed #ddd;
-    border-radius: 8px;
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
     padding: 1.5rem;
     text-align: center;
     cursor: pointer;
     transition: all 0.3s;
-    background: #fafaf8;
+    background: var(--surface2);
     margin-bottom: 1rem;
   }
 
   .modal-upload-area:hover {
-    border-color: #D4764E;
-    background: #f5ede3;
+    border-color: var(--accent);
+    background: var(--accent-light);
   }
 
   .modal-actions {
@@ -870,7 +886,7 @@
       flex-direction: column;
       position: sticky;
       bottom: calc(-1 * env(safe-area-inset-bottom));
-      background: linear-gradient(to top, rgba(255,255,255,1), rgba(255,255,255,0.96));
+      background: linear-gradient(to top, var(--surface), rgba(255,255,255,0.96));
       padding-top: 0.75rem;
     }
 
@@ -881,17 +897,18 @@
 
   .site-footer {
     text-align: center;
-    color: #888780;
-    font-size: 12px;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.04em;
     margin-top: 2.5rem;
     padding: 1.25rem 0 0.5rem;
   }
 
-
   .modal-upload-area.dragover {
-    border-color: #D4764E;
-    background: #f0e6d8;
-    box-shadow: 0 0 0 3px rgba(212, 118, 78, 0.1);
+    border-color: var(--accent);
+    background: var(--accent-light);
+    box-shadow: 0 0 0 3px var(--accent-light);
   }
 
   .toast {
@@ -899,10 +916,11 @@
     left: 50%;
     bottom: calc(24px + env(safe-area-inset-bottom));
     transform: translateX(-50%) translateY(12px);
-    background: rgba(44, 44, 42, 0.94);
+    background: var(--text);
     color: #fff;
     padding: 12px 18px;
     border-radius: 999px;
+    font-family: 'Nunito', sans-serif;
     font-size: 14px;
     font-weight: 600;
     line-height: 1.4;
@@ -910,7 +928,7 @@
     pointer-events: none;
     transition: opacity 0.25s ease, transform 0.25s ease;
     z-index: 100001;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+    box-shadow: 0 8px 24px rgba(58,42,26,0.18);
     white-space: nowrap;
     max-width: calc(100vw - 32px);
     overflow: hidden;
@@ -937,17 +955,18 @@
 
 <div class="container">
   <div class="header">
-    <h1>🍳 インスタセーバー</h1>
+    <span class="header-badge">Bookmark</span>
+    <h1>Recipe <span>Saver</span></h1>
     <p>Instagramのお気に入り投稿のURLを保存・管理</p>
   </div>
 
   <div class="info-message">
-    💡 投稿のURLを貼り付けて保存。カテゴリーで簡単検索！
+    投稿のURLを貼り付けて保存。カテゴリーで簡単検索！
   </div>
 
   <div class="input-section">
-    <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 1.5rem; color: #2c2c2a;">新しいお気に入りを追加</h3>
-    
+    <h3 style="font-family: 'Lora', serif; font-size: 18px; font-weight: 600; margin-bottom: 1.5rem; color: var(--text);">新しいお気に入りを追加</h3>
+
     <div class="input-group">
       <label>Instagram投稿URL（任意）</label>
       <input type="url" id="postUrl" placeholder="https://instagram.com/p/ABC123...">
@@ -957,15 +976,15 @@
       <label>スクリーンショット画像（任意）</label>
       <div id="uploadArea" class="upload-area" ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" onclick="document.getElementById('imageInput').click()">
         <div class="upload-area-content">
-          <div style="font-size: 32px; margin-bottom: 0.5rem;">📸</div>
-          <div style="font-size: 13px; color: #2c2c2a; font-weight: 500;">ここに画像をドラッグ&ドロップ</div>
-          <div style="font-size: 12px; color: #888780; margin-top: 0.3rem;">またはクリックして選択</div>
+          <div style="font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.5rem;">Image</div>
+          <div style="font-size: 13px; color: var(--text); font-weight: 500;">ここに画像をドラッグ&ドロップ</div>
+          <div style="font-size: 12px; color: var(--muted); margin-top: 0.3rem;">またはクリックして選択</div>
         </div>
       </div>
       <input type="file" id="imageInput" style="display: none;" accept="image/*" onchange="handleImageSelect(event)">
       <div id="imagePreview" style="display: none;">
         <img id="previewImg" src="">
-        <button type="button" onclick="clearImage()" style="margin-top: 0.5rem; width: 100%; padding: 0.6rem; border: 1px solid #ddd; border-radius: 8px; background: white; cursor: pointer;">画像を削除</button>
+        <button type="button" onclick="clearImage()" style="margin-top: 0.5rem; width: 100%; padding: 0.6rem; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); cursor: pointer;">画像を削除</button>
       </div>
     </div>
 
@@ -993,7 +1012,7 @@
     </div>
 
     <div class="button-group">
-      <button class="primary" onclick="saveRecipe()">💾 保存する</button>
+      <button class="primary" onclick="saveRecipe()">保存する</button>
       <button onclick="clearForm()">クリア</button>
     </div>
   </div>
@@ -1017,7 +1036,7 @@
 
     <div class="recipes-grid" id="recipesGrid">
       <div class="empty-state">
-        <span class="empty-state-icon">📝</span>
+        <span class="empty-state-icon">Empty</span>
         <p>レシピをまだ保存していません</p>
       </div>
     </div>
@@ -1027,25 +1046,25 @@
 <!-- 編集モーダル -->
 <div class="modal" id="editModal">
   <div class="modal-content">
-    <button class="modal-close" onclick="closeModal()">✕</button>
+    <button class="modal-close" onclick="closeModal()">&times;</button>
     <div class="modal-header">投稿を編集</div>
-    
+
     <div class="thumbnail-preview no-image" id="modalThumbnail">
       <div class="placeholder-card"><div class="no-image-logo">NO IMAGE</div></div>
     </div>
 
     <div style="margin-bottom: 1.5rem;">
-      <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 0.6rem; color: #2c2c2a;">画像を追加・変更（任意）</label>
+      <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 0.6rem; color: var(--text);">画像を追加・変更（任意）</label>
       <div id="modalUploadArea" class="modal-upload-area" ondrop="handleModalDrop(event)" ondragover="handleModalDragOver(event)" ondragleave="handleModalDragLeave(event)" onclick="document.getElementById('modalImageInput').click()">
-        <div style="font-size: 24px; margin-bottom: 0.3rem;">📸</div>
-        <div style="font-size: 12px; color: #2c2c2a;">ドラッグ&ドロップまたはクリック</div>
+        <div style="font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.3rem;">Image</div>
+        <div style="font-size: 12px; color: var(--text);">ドラッグ&ドロップまたはクリック</div>
       </div>
       <input type="file" id="modalImageInput" style="display: none;" accept="image/*" onchange="handleModalImageSelect(event)">
     </div>
 
     <div style="margin-bottom: 1.5rem;">
-      <label style="display: block; font-size: 14px; font-weight: 600; margin-bottom: 0.6rem; color: #2c2c2a;">カテゴリ</label>
-      <select id="modalCategory" style="width: 100%; padding: 0.9rem; border: 1px solid #ddd; border-radius: 8px; font-family: inherit; font-size: 14px; background: #fafaf8;">
+      <label style="display: block; font-size: 14px; font-weight: 600; margin-bottom: 0.6rem; color: var(--text);">カテゴリ</label>
+      <select id="modalCategory" style="width: 100%; padding: 0.9rem; border: 1px solid var(--border); border-radius: 8px; font-family: inherit; font-size: 14px; background: var(--surface2);">
         <option value="">選択してください</option>
         <option value="main">メイン料理</option>
         <option value="side">副菜</option>
@@ -1062,8 +1081,8 @@
     </div>
 
     <div style="margin-bottom: 1.5rem;">
-      <label style="display: block; font-size: 14px; font-weight: 600; margin-bottom: 0.6rem; color: #2c2c2a;">メモ</label>
-      <textarea id="modalMemo" style="width: 100%; padding: 0.9rem; border: 1px solid #ddd; border-radius: 8px; font-family: inherit; min-height: 150px; font-size: 14px; background: #fafaf8;"></textarea>
+      <label style="display: block; font-size: 14px; font-weight: 600; margin-bottom: 0.6rem; color: var(--text);">メモ</label>
+      <textarea id="modalMemo" style="width: 100%; padding: 0.9rem; border: 1px solid var(--border); border-radius: 8px; font-family: inherit; min-height: 150px; font-size: 14px; background: var(--surface2);"></textarea>
     </div>
 
     <div class="modal-actions">
@@ -1071,7 +1090,7 @@
       <button style="flex: 1;" onclick="closeModal()">キャンセル / 閉じる</button>
     </div>
   </div>
-  <footer class="site-footer">© 2026 インスタセーバー. All rights reserved.</footer>
+  <footer class="site-footer">© 2026 RECIPE SAVER. All rights reserved.</footer>
 </div>
 
 
