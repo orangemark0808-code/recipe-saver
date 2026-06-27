@@ -1077,11 +1077,23 @@
 
   <div id="customToast" class="toast"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>
-const SUPABASE_URL = 'https://vwfzlcgfgffknpmselzy.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_0LpdSdGbLIcC0P5rkVXgpg_1SN3sR-p';
-const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc, orderBy, query } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyABS_NRRkZ7tACRYPY3K2uYtSTFwxFMwUU",
+  authDomain: "my-toolbox-7c6cb.firebaseapp.com",
+  projectId: "my-toolbox-7c6cb",
+  storageBucket: "my-toolbox-7c6cb.appspot.com",
+  messagingSenderId: "981146031868",
+  appId: "1:981146031868:web:5b73490c50499eddaee979"
+};
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const storage = getStorage(app);
+const RECIPES_COLLECTION = 'insta_bookmarks';
 
 const CUSTOM_CATEGORIES_KEY = 'instaSaverCustomCategories';
 
@@ -1222,49 +1234,24 @@ function normalizeInstagramUrl(rawUrl) {
 }
 
 async function loadRecipes() {
-  const { data, error } = await supabaseClient
-    .from('recipes')
-    .select('*')
-    .order('created_at', { ascending: false });
-
-  if (error) {
+  try {
+    const q = query(collection(db, RECIPES_COLLECTION), orderBy('created_at', 'desc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(d => ({ id: d.id, ...d.data(), favorite: !!d.data().favorite }));
+  } catch (error) {
     console.error('データ読み込みエラー:', error);
     alert('データの読み込みに失敗しました');
     return [];
   }
-
-  return (data || []).map(item => ({
-    ...item,
-    favorite: !!item.favorite
-  }));
 }
 
 async function uploadImage(file) {
   if (!file) return null;
-
   const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
   const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-  const filePath = `public/${fileName}`;
-
-  const { error: uploadError } = await supabaseClient
-    .storage
-    .from('recipe-images')
-    .upload(filePath, file, {
-      cacheControl: '3600',
-      upsert: false
-    });
-
-  if (uploadError) {
-    console.error('画像アップロードエラー:', uploadError);
-    throw new Error('画像アップロードに失敗しました');
-  }
-
-  const { data } = supabaseClient
-    .storage
-    .from('recipe-images')
-    .getPublicUrl(filePath);
-
-  return data.publicUrl;
+  const storageRef = ref(storage, `insta_bookmarks/${fileName}`);
+  await uploadBytes(storageRef, file);
+  return await getDownloadURL(storageRef);
 }
 
 function handleDragOver(event) {
@@ -1377,25 +1364,19 @@ async function saveRecipe() {
       thumbnailUrl = await uploadImage(currentImageFile);
     }
 
-    const { error } = await supabaseClient
-      .from('recipes')
-      .insert([{
-        post_url: url,
-        category: category,
-        memo: memo,
-        thumbnail_url: thumbnailUrl,
-        saved_date: new Date().toLocaleDateString('ja-JP', {
-          year: 'numeric',
-          month: '2-digit',
-          day: '2-digit'
-        })
-      }]);
-
-    if (error) {
-      console.error('保存エラー:', error);
-      alert('保存に失敗しました');
-      return;
-    }
+    await addDoc(collection(db, RECIPES_COLLECTION), {
+      post_url: url,
+      category: category,
+      memo: memo,
+      thumbnail_url: thumbnailUrl,
+      saved_date: new Date().toLocaleDateString('ja-JP', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      }),
+      created_at: new Date().toISOString(),
+      favorite: false
+    });
 
     clearForm();
     await renderRecipes(currentFilterCategory);
@@ -1418,12 +1399,9 @@ async function deleteRecipe(id, event) {
   if (event) event.stopPropagation();
   if (!confirm('このレシピを削除しますか？')) return;
 
-  const { error } = await supabaseClient
-    .from('recipes')
-    .delete()
-    .eq('id', id);
-
-  if (error) {
+  try {
+    await deleteDoc(doc(db, RECIPES_COLLECTION, id));
+  } catch (error) {
     console.error('削除エラー:', error);
     alert('削除に失敗しました');
     return;
@@ -1495,16 +1473,7 @@ async function saveEditedMemo() {
       updateData.thumbnail_url = thumbnailUrl;
     }
 
-    const { error } = await supabaseClient
-      .from('recipes')
-      .update(updateData)
-      .eq('id', currentEditId);
-
-    if (error) {
-      console.error('更新エラー:', error);
-      alert('更新に失敗しました');
-      return;
-    }
+    await updateDoc(doc(db, RECIPES_COLLECTION, currentEditId), updateData);
 
     closeModal();
     await renderRecipes(currentFilterCategory);
@@ -1519,17 +1488,7 @@ async function toggleFavorite(id, currentValue, event) {
   if (event) event.stopPropagation();
 
   try {
-    const { error } = await supabaseClient
-      .from('recipes')
-      .update({ favorite: !currentValue })
-      .eq('id', id);
-
-    if (error) {
-      console.error('お気に入り更新エラー:', error);
-      alert('お気に入り機能を使うには、Supabase の recipes テーブルに favorite 列を追加してください。');
-      return;
-    }
-
+    await updateDoc(doc(db, RECIPES_COLLECTION, id), { favorite: !currentValue });
     await renderRecipes(currentFilterCategory);
   } catch (err) {
     console.error(err);
@@ -1601,7 +1560,7 @@ async function renderRecipes(category = '') {
       </div>
 
       <div class="recipe-content">
-        <div class="recipe-edit-zone" onclick="openEditFromCard(${recipe.id}, event)">
+        <div class="recipe-edit-zone" onclick="openEditFromCard('${recipe.id}', event)">
           ${recipe.category ? `<div class="recipe-category">${getCategoryLabel(recipe.category)}</div>` : ''}
           <div class="recipe-memo ${recipe.memo ? '' : 'empty'}">
             ${recipe.memo ? recipe.memo.substring(0, 100) : 'メモなし'}
@@ -1611,8 +1570,8 @@ async function renderRecipes(category = '') {
         <div class="recipe-footer">
           <div class="recipe-date">📅 ${recipe.saved_date || ''}</div>
           <div class="footer-actions">
-            <button class="delete-btn" onclick="deleteRecipe(${recipe.id}, event)" title="削除">🗑️</button>
-            <button class="favorite-btn ${recipe.favorite ? 'active' : ''}" onclick="toggleFavorite(${recipe.id}, ${recipe.favorite ? 'true' : 'false'}, event)" title="お気に入り">${recipe.favorite ? '★' : '☆'}</button>
+            <button class="delete-btn" onclick="deleteRecipe('${recipe.id}', event)" title="削除">🗑️</button>
+            <button class="favorite-btn ${recipe.favorite ? 'active' : ''}" onclick="toggleFavorite('${recipe.id}', ${recipe.favorite ? 'true' : 'false'}, event)" title="お気に入り">${recipe.favorite ? '★' : '☆'}</button>
           </div>
         </div>
       </div>
@@ -1667,6 +1626,26 @@ document.addEventListener('DOMContentLoaded', async () => {
   refreshCategorySelects();
   await renderRecipes();
 });
+
+window.handleDrop = handleDrop;
+window.handleDragOver = handleDragOver;
+window.handleDragLeave = handleDragLeave;
+window.handleImageSelect = handleImageSelect;
+window.clearImage = clearImage;
+window.saveRecipe = saveRecipe;
+window.clearForm = clearForm;
+window.handleSearchInput = handleSearchInput;
+window.filterRecipes = filterRecipes;
+window.closeModal = closeModal;
+window.handleModalDrop = handleModalDrop;
+window.handleModalDragOver = handleModalDragOver;
+window.handleModalDragLeave = handleModalDragLeave;
+window.handleModalImageSelect = handleModalImageSelect;
+window.saveEditedMemo = saveEditedMemo;
+window.openLink = openLink;
+window.openEditFromCard = openEditFromCard;
+window.deleteRecipe = deleteRecipe;
+window.toggleFavorite = toggleFavorite;
 </script>
 
 </body>
