@@ -1080,7 +1080,6 @@
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc, orderBy, query } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js';
 
 const firebaseConfig = {
   apiKey: "AIzaSyABS_NRRkZ7tACRYPY3K2uYtSTFwxFMwUU",
@@ -1092,8 +1091,9 @@ const firebaseConfig = {
 };
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-const storage = getStorage(app);
 const RECIPES_COLLECTION = 'insta_bookmarks';
+const CLOUDINARY_CLOUD_NAME = 'digakqicb';
+const CLOUDINARY_UPLOAD_PRESET = 'insta_bookmarks';
 
 const CUSTOM_CATEGORIES_KEY = 'instaSaverCustomCategories';
 
@@ -1247,11 +1247,16 @@ async function loadRecipes() {
 
 async function uploadImage(file) {
   if (!file) return null;
-  const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
-  const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-  const storageRef = ref(storage, `insta_bookmarks/${fileName}`);
-  await uploadBytes(storageRef, file);
-  return await getDownloadURL(storageRef);
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
+    method: 'POST',
+    body: formData
+  });
+  if (!res.ok) throw new Error('画像アップロードに失敗しました');
+  const data = await res.json();
+  return data.secure_url;
 }
 
 function handleDragOver(event) {
