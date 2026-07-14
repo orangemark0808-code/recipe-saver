@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#FF7F00">
+<meta name="theme-color" content="#ef7d22">
 <meta name="description" content="Instagramのお気に入り投稿を保存・管理">
 <title>Recipe Saver</title>
 <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,600;1,400&family=DM+Mono:wght@300;400&family=Nunito:wght@300;400;500;600;800&display=swap" rel="stylesheet">
@@ -15,13 +15,13 @@
     --surface: #FFFFFF;
     --surface2: #F0EDE8;
     --border: #E8E4DC;
-    --accent: #FF7F00;
-    --accent-dark: #E07000;
-    --accent-light: #FFF3E0;
+    --accent: #ef7d22;
+    --accent-dark: #d96b15;
+    --accent-light: #fff1e7;
     --text: #3a2a1a;
     --muted: #9a8878;
     --radius: 14px;
-    --shadow: 0 2px 14px rgba(255,127,0,0.07);
+    --shadow: 0 2px 14px rgba(239,125,34,0.07);
   }
 
   html, body {
@@ -53,42 +53,13 @@
     box-shadow: var(--shadow);
   }
 
-  .header-badge {
-    display: inline-block;
-    font-family: 'DM Mono', monospace;
-    font-size: 11px;
-    font-weight: 400;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    padding: 0.35rem 0.9rem;
-    border: 1px solid rgba(255,255,255,0.45);
-    border-radius: 999px;
-    margin-bottom: 1.25rem;
-    opacity: 0.92;
-  }
-
   .header h1 {
     font-family: 'Nunito', sans-serif;
     font-weight: 800;
     font-style: normal;
     font-size: clamp(1.8rem, 4vw, 2.4rem);
     letter-spacing: -0.01em;
-    margin-bottom: 0.75rem;
-  }
-
-  .header h1 span {
-    font-family: 'Nunito', sans-serif;
-    font-style: normal;
-    font-weight: 800;
-    color: white;
-  }
-
-  .header p {
-    font-family: 'Nunito', sans-serif;
-    font-size: 15px;
-    font-weight: 300;
-    line-height: 1.7;
-    opacity: 0.92;
+    margin-bottom: 0;
   }
 
   .input-section {
@@ -406,7 +377,7 @@
 
   .recipe-card:hover {
     border-color: var(--accent);
-    box-shadow: 0 4px 18px rgba(255,127,0,0.12);
+    box-shadow: 0 4px 18px rgba(239,125,34,0.12);
   }
 
   .recipe-image-link {
@@ -958,9 +929,7 @@
 
 <div class="container">
   <div class="header">
-    <span class="header-badge">Bookmark</span>
-    <h1>Recipe <span>Saver</span></h1>
-    <p>お気に入り投稿のURLを貼り付けて保存・管理。<br>カテゴリーで簡単検索！</p>
+    <h1>Recipe-Saver</h1>
   </div>
 
   <div class="input-section">
