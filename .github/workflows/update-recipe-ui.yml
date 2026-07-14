@@ -1,0 +1,52 @@
+name: Apply Recipe Saver UI update
+
+on:
+  push:
+    paths:
+      - '.github/workflows/update-recipe-ui.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  update-ui:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update index.html
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('index.html')
+          text = path.read_text(encoding='utf-8')
+
+          replacements = {
+              '<meta name="theme-color" content="#FF7F00">': '<meta name="theme-color" content="#ef7d22">',
+              '    --accent: #FF7F00;': '    --accent: #ef7d22;',
+              '    --accent-dark: #E07000;': '    --accent-dark: #d96b15;',
+              '    --accent-light: #FFF3E0;': '    --accent-light: #fff1e7;',
+              '    --shadow: 0 2px 14px rgba(255,127,0,0.07);': '    --shadow: 0 2px 14px rgba(239,125,34,0.07);',
+              '    box-shadow: 0 4px 18px rgba(255,127,0,0.12);': '    box-shadow: 0 4px 18px rgba(239,125,34,0.12);',
+              '    margin-bottom: 0.75rem;': '    margin-bottom: 0;',
+              '''    <span class="header-badge">Bookmark</span>
+    <h1>Recipe <span>Saver</span></h1>
+    <p>お気に入り投稿のURLを貼り付けて保存・管理。<br>カテゴリーで簡単検索！</p>''': '    <h1>Recipe-Saver</h1>',
+          }
+
+          for old, new in replacements.items():
+              if old not in text:
+                  raise SystemExit(f'Expected text not found: {old!r}')
+              text = text.replace(old, new, 1)
+
+          path.write_text(text, encoding='utf-8')
+
+      - name: Remove temporary workflow and commit
+        run: |
+          rm .github/workflows/update-recipe-ui.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html .github/workflows/update-recipe-ui.yml
+          git commit -m "style: update Recipe-Saver header and brand orange"
+          git push
