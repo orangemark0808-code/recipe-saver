@@ -60,7 +60,7 @@ button.recipe-image-wrapper { padding: 0; border: 0; border-radius: 0; min-heigh
 .recipe-content { display: flex; flex: 1; flex-direction: column; min-width: 0; padding: 10px; }
 .recipe-edit-zone { display: block; width: 100%; padding: 0; border: 0; background: transparent; text-align: left; font-weight: 400; }
 .recipe-edit-zone:hover { background: transparent; }
-.recipe-category { display: inline-block; padding: 2px 7px; border-radius: 4px; color: var(--accent-dark); background: var(--accent-light); font-size: 11px; margin-bottom: 6px; }
+.recipe-category { display: inline-block; padding: 2px 8px; border-radius: 4px; color: var(--accent-dark); background: var(--accent-light); font-size: 12px; font-weight: 600; margin-bottom: 6px; }
 .recipe-memo { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; line-height: 1.55; }
 .recipe-memo.empty { color: var(--muted); }
 .edit-hint { display: block; color: var(--accent-dark); font-size: 12px; margin: 7px 0; }
