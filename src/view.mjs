@@ -1,5 +1,5 @@
 import { makeIcon } from './icons.mjs';
-import { DEFAULT_CATEGORIES, categoryColor, categoryLabel, nextPaletteColor, readableTextColor, originalImageUrl, safePostUrl, safeImageUrl, validateImage } from './core.mjs';
+import { DEFAULT_CATEGORIES, categoryColor, categoryLabel, labelColors, nextPaletteColor, originalImageUrl, safePostUrl, safeImageUrl, validateImage } from './core.mjs';
 
 export function createView(document, { origin = location.origin, objectUrls = URL, confirmDelete = () => confirm('この投稿を削除しますか？'), confirmDiscard = () => confirm('保存していない変更があります。変更を破棄しますか？'), confirmCategoryRemoval = ({ names, posts }) => confirm(`「${names.join('」「')}」を削除します。${posts ? `この${posts}件の投稿は「その他」（なければ未分類）として表示されます。` : ''}よろしいですか？`) } = {}) {
   const get = id => document.getElementById(id);
@@ -64,10 +64,11 @@ export function createView(document, { origin = location.origin, objectUrls = UR
     container.append(img);
   }
 
-  // カテゴリの色をラベルに付ける。文字色は背景の明るさから自動で決める。
+  // カテゴリの色をラベルに付ける。背景の濃さと文字色は、読みやすいように自動で調整する。
   function colorChip(element, color) {
-    element.style.backgroundColor = color || '';
-    element.style.color = color ? readableTextColor(color) : '';
+    const colors = labelColors(color);
+    element.style.backgroundColor = colors.background;
+    element.style.color = colors.color;
   }
 
   function makeCard(recipe) {

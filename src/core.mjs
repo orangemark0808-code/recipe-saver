@@ -52,6 +52,31 @@ export function readableTextColor(background) {
   const withDark = (light + 0.05) / (luminance(DARK_TEXT) + 0.05);
   return withWhite > withDark ? '#ffffff' : DARK_TEXT;
 }
+// ラベル（カテゴリ名のタグ）の背景色と文字色。背景が中くらいの濃さだと文字が読みにくいため、
+// 文字とのコントラストが十分（7:1以上）になるまで、背景を白（または黒）に寄せて調整する。
+const LABEL_DARK_TEXT = '#1f1409';
+const LABEL_TARGET_CONTRAST = 7;
+const toHex = channels => `#${channels.map(value => Math.round(value).toString(16).padStart(2, '0')).join('')}`;
+function mixHex(hex, other, amount) {
+  const base = [1, 3, 5].map(index => parseInt(hex.slice(index, index + 2), 16));
+  return toHex(base.map((value, index) => value + (other[index] - value) * amount));
+}
+export function labelColors(background) {
+  if (!COLOR_PATTERN.test(asText(background))) return { background: '', color: '' };
+  const darkLuminance = luminance(LABEL_DARK_TEXT);
+  const contrastWith = (hex, textIsWhite) => {
+    const light = luminance(hex);
+    return textIsWhite ? 1.05 / (light + 0.05) : (light + 0.05) / (darkLuminance + 0.05);
+  };
+  // 白と濃い茶色のうち、読みやすい方を文字色にする。
+  const textIsWhite = contrastWith(background, true) > contrastWith(background, false);
+  const target = textIsWhite ? [0, 0, 0] : [255, 255, 255];
+  let adjusted = background.toLowerCase();
+  for (let step = 1; step <= 7 && contrastWith(adjusted, textIsWhite) < LABEL_TARGET_CONTRAST; step++) {
+    adjusted = mixHex(background, target, step * 0.1);
+  }
+  return { background: adjusted, color: textIsWhite ? '#ffffff' : LABEL_DARK_TEXT };
+}
 // まだ使われていないパレットの色。全部使われていたら順番に使い回す。
 export function nextPaletteColor(used) {
   const taken = new Set(used.map(color => asText(color).toLowerCase()));
