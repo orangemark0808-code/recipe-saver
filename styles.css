@@ -154,3 +154,9 @@ dialog.modal::backdrop { background: rgba(58,42,26,.45); }
 .category-list { grid-template-columns: minmax(0, 1fr); }
 .category-row { min-width: 0; }
 .category-row input[type="text"] { min-width: 0; }
+
+/* 画像から文字を読み取る */
+.read-text-button { width: 100%; margin-top: 8px; border-color: var(--accent); color: var(--accent-dark); font-size: 13px; }
+.ocr-status { margin-top: 6px; color: var(--accent-dark); font-size: 12px; line-height: 1.6; }
+#imagePreview { flex-wrap: wrap; }
+#imagePreview .read-text-button, #imagePreview .ocr-status { flex: 1 0 100%; margin-top: 0; }
