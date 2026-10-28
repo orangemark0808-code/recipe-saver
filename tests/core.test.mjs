@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeCategory, categoryLabel, normalizePostUrl, safePostUrl, safeImageUrl, normalizeRecipe, filterRecipes, validateImage, validateMemo, cropScreenshotUrl, originalImageUrl, DEFAULT_CATEGORIES, validateCategories, sanitizeCategories, newCategoryId } from '../src/core.mjs';
+import { normalizeCategory, categoryLabel, normalizePostUrl, safePostUrl, safeImageUrl, normalizeRecipe, filterRecipes, validateImage, validateMemo, cropScreenshotUrl, originalImageUrl, DEFAULT_CATEGORIES, validateCategories, sanitizeCategories, newCategoryId, readableTextColor, nextPaletteColor, categoryColor } from '../src/core.mjs';
 
 test('旧カテゴリを表示・編集・検索で共通の値へ変換する', () => {
   for (const [oldValue, newValue] of Object.entries({ dessert: 'snack', ai: 'it', bread: 'other', salad: 'other', drink: 'other' })) {
@@ -76,8 +76,9 @@ test('設定したカテゴリで投稿を分類し、一覧にないカテゴ�
 });
 
 test('カテゴリ一覧の検証：件数・名前・識別子・重複', () => {
-  assert.deepEqual(validateCategories([{ value: 'a', label: ' カレー ' }]), [{ value: 'a', label: 'カレー' }]);
+  assert.deepEqual(validateCategories([{ value: 'a', label: ' カレー ' }]), [{ value: 'a', label: 'カレー', color: '#f5a3a3' }]);
   for (const bad of [null, [], [{ value: 'a', label: '' }], [{ value: 'A!', label: 'x' }], [{ value: 'a', label: 'x'.repeat(21) }],
+    [{ value: 'a', label: 'x', color: 'red' }], [{ value: 'a', label: 'x', color: '#12345' }],
     [{ value: 'a', label: 'x' }, { value: 'a', label: 'y' }], [{ value: 'a', label: 'x' }, { value: 'b', label: 'x' }],
     Array.from({ length: 31 }, (_, i) => ({ value: `c${i}`, label: `名${i}` }))]) assert.throws(() => validateCategories(bad));
   assert.equal(sanitizeCategories({ items: [{ value: 'a', label: 'x' }] }).length, 1);
@@ -91,4 +92,37 @@ test('新しいカテゴリの識別子は既存と重ならない', () => {
   assert.ok(id.length <= 24);
   const same = newCategoryId([{ value: id }], () => 1_700_000_000_000, () => 0.5);
   assert.notEqual(same, id);
+});
+
+test('カテゴリの色：色がなければ自動で付け、重ならない。色の指定は正規化する', () => {
+  const colored = validateCategories([{ value: 'a', label: 'カレー' }, { value: 'snack', label: 'おやつ' }, { value: 'b', label: 'x', color: '#ABCDEF' }, { value: 'c', label: 'y' }]);
+  assert.equal(colored[1].color, DEFAULT_CATEGORIES.find(item => item.value === 'snack').color);
+  assert.equal(colored[2].color, '#abcdef');
+  assert.equal(new Set(colored.map(item => item.color)).size, 4);
+  assert.ok(DEFAULT_CATEGORIES.every(item => /^#[0-9a-f]{6}$/.test(item.color)));
+  assert.equal(new Set(DEFAULT_CATEGORIES.map(item => item.color)).size, DEFAULT_CATEGORIES.length);
+});
+
+test('文字色は背景の明るさから決まり、初期の色はすべて読みやすい', () => {
+  assert.equal(readableTextColor('#ffffff'), '#3a2a1a');
+  assert.equal(readableTextColor('#2b2b2b'), '#ffffff');
+  assert.equal(readableTextColor('#8c3a1a'), '#ffffff');
+  assert.equal(readableTextColor('bad'), '#3a2a1a');
+  const contrast = (a, b) => {
+    const light = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255).map(c => c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4).reduce((sum, c, i) => sum + c * [0.2126, 0.7152, 0.0722][i], 0);
+    const [hi, lo] = [light(a), light(b)].sort((x, y) => y - x);
+    return (hi + 0.05) / (lo + 0.05);
+  };
+  for (const item of DEFAULT_CATEGORIES) assert.ok(contrast(item.color, readableTextColor(item.color)) >= 4.5, item.label);
+  // どんな背景色でも、白と濃い茶色の2択の中で読みやすい方を選ぶ（中間のグレーや純粋な赤は4前後が上限）。
+  for (const hex of ['#000000', '#777777', '#ff0000', '#00ff00', '#0000ff', '#ffff00']) assert.ok(contrast(hex, readableTextColor(hex)) >= 3.9, hex);
+});
+
+test('カテゴリの色の取り出しと、次のパレットの色', () => {
+  assert.equal(categoryColor('main'), '#f4b860');
+  assert.equal(categoryColor('curry', [{ value: 'curry', label: 'カレー', color: '#ABCDEF' }]), '#abcdef');
+  assert.equal(categoryColor('', DEFAULT_CATEGORIES), '');
+  assert.equal(categoryColor('x', [{ value: 'x', label: 'x' }]), '');
+  assert.equal(nextPaletteColor(['#f5a3a3', '#f4b860']), '#9fd3a0');
+  assert.equal(nextPaletteColor([]), '#f5a3a3');
 });

@@ -364,6 +364,7 @@ test('カテゴリを追加・名前変更・並べ替えて保存する。新�
   await t.controller.saveCategories();
   const saved = t.calls.categories[0];
   assert.equal(saved[0].label, 'カレー');
+  assert.match(saved[0].color, /^#[0-9a-f]{6}$/);
   assert.match(saved[0].value, /^c[a-z0-9]+$/);
   assert.deepEqual(saved.slice(1, 3).map(item => item.value), ['main', 'snack']);
   assert.equal(saved[1].label, 'メインおかず');
