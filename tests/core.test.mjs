@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeCategory, categoryLabel, normalizePostUrl, safePostUrl, safeImageUrl, normalizeRecipe, filterRecipes, validateImage, validateMemo } from '../src/core.mjs';
+import { normalizeCategory, categoryLabel, normalizePostUrl, safePostUrl, safeImageUrl, normalizeRecipe, filterRecipes, validateImage, validateMemo, cropScreenshotUrl, originalImageUrl } from '../src/core.mjs';
 
 test('旧カテゴリを表示・編集・検索で共通の値へ変換する', () => {
   for (const [oldValue, newValue] of Object.entries({ dessert: 'snack', ai: 'it', bread: 'other', salad: 'other', drink: 'other' })) {
@@ -44,4 +44,19 @@ test('画像の形式・容量、メモの上限を検証する', () => {
   assert.ok(validateImage({ type: 'image/png', size: 100 }));
   assert.throws(() => validateMemo('あ'.repeat(10001)));
   assert.equal(validateMemo(' <b>本文</b> '), '<b>本文</b>');
+});
+
+test('縦長のスクショだけ上下の余白を切り、元のURLへ戻せる', () => {
+  const plain = 'https://res.cloudinary.com/demo/image/upload/v123/shot.png';
+  const cropped = cropScreenshotUrl(plain, 1080, 2400);
+  assert.equal(cropped, 'https://res.cloudinary.com/demo/image/upload/c_crop,w_1.0,h_0.84,y_0.08/v123/shot.png');
+  assert.equal(originalImageUrl(cropped), plain);
+  // 横長・正方形に近い写真は切らない。
+  assert.equal(cropScreenshotUrl(plain, 2400, 1080), plain);
+  assert.equal(cropScreenshotUrl(plain, 1000, 1200), plain);
+  // 寸法が不明・変換済み・Cloudinary以外はそのまま。
+  assert.equal(cropScreenshotUrl(plain, undefined, undefined), plain);
+  assert.equal(cropScreenshotUrl(cropped, 1080, 2400), cropped);
+  assert.equal(cropScreenshotUrl('https://example.com/a.png', 1080, 2400), 'https://example.com/a.png');
+  assert.equal(originalImageUrl(plain), plain);
 });

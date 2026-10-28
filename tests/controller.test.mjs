@@ -33,6 +33,7 @@ function harness(overrides = {}) {
     closeEdit() { screen.closed++; screen.edit = null; },
     confirmDelete() { return true; },
     confirmDiscard() { screen.discardAsked = (screen.discardAsked || 0) + 1; return screen.allowDiscard ?? true; },
+    applyShared(shared) { screen.shared = shared; },
     readNew() { return screen.newInput; }, readEdit() { return screen.editInput; }
   };
   const controller = createController({ backend, view, ownerUid: 'owner', now: () => new Date('2026-10-28T00:00:00Z') });
@@ -266,4 +267,27 @@ test('編集保存が失敗しても変更と破棄確認を保持する', async
   assert.equal(t.screen.editInput.memo, '保持する');
   assert.equal(t.screen.edit.id, 'A');
   assert.equal(t.screen.discardAsked, 1);
+});
+
+test('共有された内容は、本人のログインと読み込みのあとでフォームに入る', async () => {
+  const t = harness();
+  const shared = { url: 'https://www.instagram.com/p/shared/', file: null };
+  t.controller.setShared(shared);
+  await t.auth(null);
+  assert.equal(t.screen.shared, undefined);
+  await t.auth('owner');
+  assert.equal(t.screen.shared, shared);
+  assert.equal(t.calls.list, 1);
+  assert.match(t.screen.notices.at(-1).message, /共有された内容/);
+});
+
+test('別アカウントでは共有された内容を入力せず、破棄する', async () => {
+  const t = harness();
+  t.controller.setShared({ url: 'https://www.instagram.com/p/shared/', file: null });
+  await t.auth('someone-else');
+  await t.auth('owner');
+  assert.equal(t.screen.shared, undefined);
+  t.controller.setShared({ url: '', file: null });
+  await t.auth('owner');
+  assert.equal(t.screen.shared, undefined);
 });
