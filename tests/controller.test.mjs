@@ -291,3 +291,11 @@ test('別アカウントでは共有された内容を入力せず、破棄す�
   await t.auth('owner');
   assert.equal(t.screen.shared, undefined);
 });
+
+test('メモとカテゴリだけの下書きも、本人のログイン後にフォームへ戻す', async () => {
+  const t = harness();
+  const shared = { url: '', memo: '米粉のクッキー', category: 'snack', file: null };
+  t.controller.setShared(shared);
+  await t.auth('owner');
+  assert.equal(t.screen.shared, shared);
+}); 
