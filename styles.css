@@ -67,10 +67,9 @@ button.recipe-image-wrapper { padding: 0; border: 0; border-radius: 0; min-heigh
 .recipe-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 4px; margin-top: auto; border-top: 1px solid var(--border); }
 .recipe-date { color: var(--muted); font-size: 10px; white-space: nowrap; }
 .footer-actions { display: flex; margin-left: auto; }
-.favorite-btn, .delete-btn { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 44px; min-height: 44px; padding: 0; border: 0; background: transparent; color: var(--muted); }
+.favorite-btn { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 40px; min-height: 44px; padding: 0; border: 0; background: transparent; color: var(--muted); }
 .favorite-btn { font-size: 23px; }
 .favorite-btn.active { color: var(--accent); }
-.delete-btn { font-size: 14px; }
 .empty-state { grid-column: 1/-1; padding: 28px 12px; text-align: center; color: var(--muted); }
 .empty-state button { margin-top: 12px; }
 .site-footer { margin-top: 24px; text-align: center; font-size: 10px; color: var(--muted); }
@@ -120,10 +119,17 @@ dialog.modal::backdrop { background: rgba(58,42,26,.45); }
 /* カテゴリの編集（歯車ボタンとダイアログ） */
 .filter-select-row { display: flex; gap: 8px; }
 .filter-select-row select { flex: 1; min-width: 0; }
-.gear-button { flex: none; width: 44px; padding: 0; font-size: 20px; line-height: 1; }
 .category-hint { margin: 0 0 12px; color: var(--muted); font-size: 12px; line-height: 1.6; }
 .category-list { display: grid; gap: 8px; margin: 0 0 14px; padding: 0; list-style: none; }
 .category-row, .category-add { display: flex; gap: 6px; align-items: center; }
 .category-row input[type="text"], .category-add input[type="text"] { flex: 1 1 auto; width: auto; min-width: 0; }
 .category-row button, .category-add button { flex: none; padding: 0 10px; }
 .category-row button { width: 44px; padding: 0; }
+
+/* フラットなアイコンボタン（オレンジの角丸の背景に白い線）。透明な枠で、タップできる範囲は44px */
+.icon { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
+.chip-btn { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 44px; min-height: 44px; padding: 0; border: 6px solid transparent; border-radius: 14px; background: var(--accent); background-clip: padding-box; color: #fff; }
+.chip-btn:hover { background: var(--accent-dark); background-clip: padding-box; }
+.card-chip { width: 40px; border-width: 4px; border-radius: 12px; }
+.card-chip .icon { width: 18px; height: 18px; }
+.category-row .chip-btn { padding: 0; }
