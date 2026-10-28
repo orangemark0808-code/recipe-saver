@@ -156,6 +156,9 @@ export function createView(document, { origin = location.origin, objectUrls = UR
     for (const id of cards.keys()) if (!visible.has(id)) cards.delete(id);
   }
 
+  // 入力内容が変わったことを知らせる（下書きの自動保存用）。プログラムによる初期化では呼ばない。
+  let draftListener = () => {};
+  const touchDraft = () => draftListener();
   function releasePreview(which) {
     if (previews[which]) objectUrls.revokeObjectURL(previews[which]);
     previews[which] = null;
@@ -178,16 +181,25 @@ export function createView(document, { origin = location.origin, objectUrls = UR
       get('previewImg').src = previews.main;
       get('imagePreview').hidden = false;
       get('uploadArea').hidden = true;
+      touchDraft();
     } else renderThumbnail(get('modalThumbnail'), previews.modal, '', true);
   }
-  function clearNew() {
+  // ログアウトや再読み込みなどの初期化。下書きには触れない。
+  function resetNew() {
     get('newForm').reset();
     clearImage();
   }
+  // 保存後・クリアボタン。入力欄を空にし、下書きも空にする。
+  function clearNew() {
+    resetNew();
+    touchDraft();
+  }
   function clearFilters() { get('searchInput').value = ''; get('categoryFilterSelect').value = ''; }
   // 共有メニューから届いたURL・画像を新規投稿フォームに入れる。保存は本人が押す。
-  function applyShared({ url, file }) {
+  function applyShared({ url, memo, category, file }) {
     if (url) get('postUrl').value = url;
+    if (memo) get('memo').value = memo;
+    if (category) get('category').value = category;
     if (file) chooseImage('main', file);
   }
   function renderDetail(recipe) {
@@ -291,7 +303,8 @@ export function createView(document, { origin = location.origin, objectUrls = UR
     listen(get('logoutButton'), 'click', () => act(actions.logout));
     listen(get('newForm'), 'submit', event => { event.preventDefault(); act(actions.saveNew); });
     listen(get('clearFormButton'), 'click', actions.clearNew);
-    listen(get('clearImageButton'), 'click', clearImage);
+    listen(get('clearImageButton'), 'click', () => { clearImage(); touchDraft(); });
+    for (const [id, type] of [['postUrl', 'input'], ['memo', 'input'], ['category', 'change']]) listen(get(id), type, touchDraft);
     listen(get('searchInput'), 'input', event => actions.search(event.target.value));
     listen(get('categoryFilterSelect'), 'change', event => actions.filter(event.target.value));
     listen(get('editForm'), 'submit', event => { event.preventDefault(); act(actions.saveEdit); });
@@ -328,7 +341,7 @@ export function createView(document, { origin = location.origin, objectUrls = UR
     get('customToast').textContent = '';
     closeEdit();
     closeDetail();
-    clearNew();
+    resetNew();
     clearFilters();
     cards.clear();
     get('recipesGrid').replaceChildren();
@@ -337,7 +350,7 @@ export function createView(document, { origin = location.origin, objectUrls = UR
   function destroy() { reset(); listeners.abort(); clearTimeout(toastTimer); }
 
   return {
-    bind, setAuth, setBusy, renderList, notify, clearNew, clearFilters, applyShared, openEdit, closeEdit, openDetail, closeDetail, renderDetail, reset, destroy, confirmDelete, confirmDiscard,
+    bind, setAuth, setBusy, renderList, notify, clearNew, clearFilters, applyShared, onDraftChange: listener => { draftListener = listener; }, openEdit, closeEdit, openDetail, closeDetail, renderDetail, reset, destroy, confirmDelete, confirmDiscard,
     readNew: () => ({ url: get('postUrl').value, memo: get('memo').value, category: get('category').value, file: files.main }),
     readEdit: () => ({ memo: get('modalMemo').value, category: get('modalCategory').value, file: files.modal })
   };

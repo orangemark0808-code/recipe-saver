@@ -228,7 +228,7 @@ export function createController({ backend, view, ownerUid, now = () => new Date
   const actions = {
     login: () => authAction(() => backend.login()),
     logout: () => { if (!hasUnsavedChanges() || view.confirmDiscard()) return authAction(() => backend.logout()); },
-    setShared(shared) { state.shared = shared && (shared.url || shared.file) ? shared : null; },
+    setShared(shared) { state.shared = shared && (shared.url || shared.memo || shared.category || shared.file) ? shared : null; },
     reload, saveNew, saveEdit, openEdit, closeEdit: () => closeEdit(), openDetail, closeDetail, hasUnsavedChanges,
     clearNew: () => { if (!state.savingNew && (!hasNewChanges() || view.confirmDiscard())) view.clearNew(); },
     search(value) { state.search = asText(value); render(); },
