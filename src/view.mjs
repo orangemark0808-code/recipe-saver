@@ -544,6 +544,8 @@ export function createView(document, { origin = location.origin, objectUrls = UR
       get('modalOcrInput').value = '';
       if (file) act(() => actions.readText('edit', file));
     });
+    // 編集画面の3つのボタンは、アイコンで見分けられるようにする。
+    for (const [id, icon] of [['modalCropButton', 'crop'], ['modalReadTextButton', 'scan'], ['modalOcrPickButton', 'imageAdd']]) get(id).prepend(makeIcon(document, icon));
     listen(get('modalCropButton'), 'click', () => act(actions.openCrop));
     const cropStage = get('cropStage');
     listen(cropStage, 'pointerdown', event => {
