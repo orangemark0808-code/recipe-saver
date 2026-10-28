@@ -1,10 +1,11 @@
-import { asText, filterRecipes, normalizeCategory, normalizePostUrl, normalizeRecipe, validateImage, validateMemo } from './core.mjs';
+import { DEFAULT_CATEGORIES, asText, filterRecipes, newCategoryId, normalizeCategory, normalizePostUrl, normalizeRecipe, sanitizeCategories, validateCategories, validateImage, validateMemo } from './core.mjs';
 
 export function createController({ backend, view, ownerUid, now = () => new Date() }) {
   const state = {
     user: null, recipes: [], loaded: false, loading: false, error: '',
     category: '', search: '', edit: null, detail: null, savingNew: false, savingEdit: false,
-    pendingIds: new Set(), authBusy: false, shared: null
+    pendingIds: new Set(), authBusy: false, shared: null,
+    categories: DEFAULT_CATEGORIES, savingCategories: false, categoryDialog: false
   };
   let session = 0;
   let loadVersion = 0;
@@ -12,7 +13,7 @@ export function createController({ backend, view, ownerUid, now = () => new Date
   let disposed = false;
   const authorized = () => !disposed && !!ownerUid && state.user?.uid === ownerUid;
   const isCurrent = token => authorized() && session === token;
-  const busy = () => state.savingNew || state.savingEdit || state.pendingIds.size > 0;
+  const busy = () => state.savingNew || state.savingEdit || state.savingCategories || state.pendingIds.size > 0;
   const message = error => asText(error?.message) || '処理に失敗しました。もう一度お試しください。';
 
   function updateControls() {
@@ -25,7 +26,7 @@ export function createController({ backend, view, ownerUid, now = () => new Date
       else closeDetail();
     }
     view.renderList({
-      recipes: filterRecipes(state.recipes, state.category, state.search),
+      recipes: filterRecipes(state.recipes, state.category, state.search, state.categories),
       total: state.recipes.length, category: state.category, search: state.search,
       loading: state.loading, error: state.error, pendingIds: state.pendingIds
     });
@@ -44,9 +45,15 @@ export function createController({ backend, view, ownerUid, now = () => new Date
     state.error = '';
     render();
     try {
-      const recipes = await backend.list();
+      // カテゴリの設定が読めなくても投稿は表示する（初期カテゴリを使う）。
+      const [recipes, categories] = await Promise.all([
+        backend.list(),
+        Promise.resolve().then(() => backend.loadCategories()).then(sanitizeCategories, () => null)
+      ]);
       if (!isCurrent(token) || request !== loadVersion) return;
-      state.recipes = recipes.map(recipe => normalizeRecipe(recipe.id, recipe));
+      state.categories = categories || DEFAULT_CATEGORIES;
+      view.setCategories(state.categories);
+      state.recipes = recipes.map(recipe => normalizeRecipe(recipe.id, recipe, state.categories));
       state.loaded = true;
     } catch (error) {
       if (!isCurrent(token) || request !== loadVersion) return;
@@ -75,6 +82,10 @@ export function createController({ backend, view, ownerUid, now = () => new Date
     state.pendingIds.clear();
     state.category = '';
     state.search = '';
+    state.categories = DEFAULT_CATEGORIES;
+    state.savingCategories = false;
+    state.categoryDialog = false;
+    view.setCategories(DEFAULT_CATEGORIES);
     view.reset();
     view.setAuth(user ? authorized() ? 'owner' : 'denied' : 'signed-out');
     render();
@@ -115,7 +126,7 @@ export function createController({ backend, view, ownerUid, now = () => new Date
       const memo = validateMemo(input.memo);
       const file = validateImage(input.file);
       if (!url && !file) throw new Error('投稿URLまたは画像を指定してください。');
-      const category = normalizeCategory(input.category);
+      const category = normalizeCategory(input.category, state.categories);
       state.savingNew = true;
       updateControls();
       const thumbnail = file ? await backend.upload(file) : null;
@@ -129,7 +140,7 @@ export function createController({ backend, view, ownerUid, now = () => new Date
       };
       const id = await backend.create(data);
       if (!isCurrent(token)) return;
-      state.recipes = [normalizeRecipe(id, data), ...state.recipes];
+      state.recipes = [normalizeRecipe(id, data, state.categories), ...state.recipes];
       view.clearNew();
       render();
       view.notify('保存しました！');
@@ -146,9 +157,9 @@ export function createController({ backend, view, ownerUid, now = () => new Date
   function hasEditChanges() {
     if (!state.edit) return false;
     const input = view.readEdit();
-    return !!input.file || input.memo !== state.edit.memo || input.category !== state.edit.category;
+    return !!input.file || input.memo !== state.edit.memo || input.category !== state.edit.category || asText(input.url).trim() !== state.edit.url;
   }
-  function hasUnsavedChanges() { return hasNewChanges() || hasEditChanges(); }
+  function hasUnsavedChanges() { return hasNewChanges() || hasEditChanges() || (state.categoryDialog && view.categoriesChanged()); }
   function openDetail(id) {
     if (!authorized() || state.edit || state.pendingIds.has(id)) return;
     const recipe = state.recipes.find(item => item.id === id);
@@ -166,7 +177,7 @@ export function createController({ backend, view, ownerUid, now = () => new Date
     const recipe = state.recipes.find(item => item.id === id);
     if (!recipe) return;
     if (hasEditChanges() && !view.confirmDiscard()) return;
-    state.edit = { id, memo: recipe.memo, category: recipe.category };
+    state.edit = { id, memo: recipe.memo, category: recipe.category, url: recipe.post_url };
     view.openEdit(recipe);
   }
   function closeEdit(discardConfirmed = false) {
@@ -185,8 +196,15 @@ export function createController({ backend, view, ownerUid, now = () => new Date
       requireReady();
       if (!edit?.id || !state.recipes.some(item => item.id === edit.id)) throw new Error('編集する投稿を選んでください。');
       const input = view.readEdit();
-      const update = { memo: validateMemo(input.memo), category: normalizeCategory(input.category) };
+      const update = { memo: validateMemo(input.memo), category: normalizeCategory(input.category, state.categories) };
       const file = validateImage(input.file);
+      // URLは変えたときだけ検証して更新する（保存済みの古いURLを、触らないまま弾かないため）。
+      if (asText(input.url).trim() !== edit.url) {
+        const url = normalizePostUrl(input.url);
+        const current = state.recipes.find(item => item.id === edit.id);
+        if (!url && !file && !current?.thumbnail_url) throw new Error('投稿URLまたは画像を指定してください。');
+        update.post_url = url;
+      }
       state.savingEdit = true;
       updateControls();
       if (file) update.thumbnail_url = await backend.upload(file);
@@ -201,6 +219,53 @@ export function createController({ backend, view, ownerUid, now = () => new Date
     } catch (error) { if (session === token) view.notify(message(error), true); }
     finally {
       if (session === token) { state.savingEdit = false; updateControls(); }
+    }
+  }
+
+  function openCategories() {
+    if (!authorized() || !state.loaded || state.loading || busy()) return;
+    state.categoryDialog = true;
+    view.openCategories(state.categories);
+  }
+  function closeCategories() {
+    if (state.savingCategories) { view.notify('保存中です。完了までお待ちください。'); return; }
+    if (view.categoriesChanged() && !view.confirmDiscard()) return;
+    state.categoryDialog = false;
+    view.closeCategories();
+  }
+  async function saveCategories() {
+    if (state.savingCategories) return;
+    const token = session;
+    try {
+      requireReady();
+      const rows = view.readCategories();
+      // 新しく追加した行にだけ識別子を付ける。既存の行は今の識別子のまま（投稿との対応を保つ）。
+      const used = rows.filter(row => row.value).map(row => ({ value: row.value }));
+      const categories = validateCategories(rows.map(row => {
+        const value = row.value || newCategoryId(used);
+        if (!row.value) used.push({ value });
+        return { value, label: row.label };
+      }));
+      const removed = state.categories.filter(item => !categories.some(next => next.value === item.value));
+      const posts = state.recipes.filter(recipe => removed.some(item => item.value === recipe.category)).length;
+      if (removed.length && !view.confirmCategoryRemoval({ names: removed.map(item => item.label), posts })) return;
+      state.savingCategories = true;
+      updateControls();
+      await backend.saveCategories(categories);
+      if (!isCurrent(token)) return;
+      state.categories = categories;
+      // 削除したカテゴリの投稿は、再読み込みしたときと同じ扱い（その他／未分類）にそろえる。
+      state.recipes = state.recipes.map(recipe => ({ ...recipe, category: normalizeCategory(recipe.category, categories) }));
+      if (state.category && state.category !== 'favorites' && !categories.some(item => item.value === state.category)) state.category = '';
+      state.savingCategories = false;
+      state.categoryDialog = false;
+      view.closeCategories();
+      view.setCategories(categories);
+      render();
+      view.notify('カテゴリを保存しました！');
+    } catch (error) { if (session === token) view.notify(message(error), true); }
+    finally {
+      if (session === token) { state.savingCategories = false; updateControls(); }
     }
   }
 
@@ -229,10 +294,10 @@ export function createController({ backend, view, ownerUid, now = () => new Date
     login: () => authAction(() => backend.login()),
     logout: () => { if (!hasUnsavedChanges() || view.confirmDiscard()) return authAction(() => backend.logout()); },
     setShared(shared) { state.shared = shared && (shared.url || shared.memo || shared.category || shared.file) ? shared : null; },
-    reload, saveNew, saveEdit, openEdit, closeEdit: () => closeEdit(), openDetail, closeDetail, hasUnsavedChanges,
+    reload, saveNew, saveEdit, openEdit, openCategories, closeCategories, saveCategories, closeEdit: () => closeEdit(), openDetail, closeDetail, hasUnsavedChanges,
     clearNew: () => { if (!state.savingNew && (!hasNewChanges() || view.confirmDiscard())) view.clearNew(); },
     search(value) { state.search = asText(value); render(); },
-    filter(value) { state.category = value === 'favorites' ? value : normalizeCategory(value); render(); },
+    filter(value) { state.category = value === 'favorites' ? value : normalizeCategory(value, state.categories); render(); },
     clearFilters() { state.search = ''; state.category = ''; view.clearFilters(); render(); },
     toggleFavorite: id => changeRecipe(id),
     deleteRecipe: id => changeRecipe(id, true),

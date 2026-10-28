@@ -1,6 +1,6 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
-import { getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { getFirestore, collection, getDocs, getDoc, setDoc, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { firebaseConfig, ownerUid, cloudinary } from './config.mjs';
 import { cropScreenshotUrl, normalizeRecipe, safeImageUrl, validateImage } from './core.mjs';
 
@@ -9,6 +9,8 @@ export function createBackend() {
   const auth = getAuth(app);
   const db = getFirestore(app);
   const records = collection(db, 'insta_bookmarks');
+  // カテゴリの設定（名前・順番）。PCとスマホで同じ内容を使う。
+  const categorySettings = doc(db, 'insta_settings', 'categories');
   function requireOwner() {
     if (!ownerUid || auth.currentUser?.uid !== ownerUid) throw new Error('ご本人のアカウントでログインしてください。');
   }
@@ -20,6 +22,16 @@ export function createBackend() {
       requireOwner();
       const result = await getDocs(query(records, orderBy('created_at', 'desc')));
       return result.docs.map(item => normalizeRecipe(item.id, item.data()));
+    },
+    async loadCategories() {
+      requireOwner();
+      const result = await getDoc(categorySettings);
+      return result.exists() ? result.data() : null;
+    },
+    async saveCategories(items) {
+      requireOwner();
+      try { await setDoc(categorySettings, { items, updated_at: new Date().toISOString() }); }
+      catch { throw new Error('カテゴリを保存できませんでした。通信状態とFirestoreのルール設定をご確認ください。'); }
     },
     async create(data) {
       requireOwner();

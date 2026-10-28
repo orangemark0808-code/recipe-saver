@@ -1,6 +1,6 @@
-import { CATEGORIES, categoryLabel, originalImageUrl, safePostUrl, safeImageUrl, validateImage } from './core.mjs';
+import { DEFAULT_CATEGORIES, categoryLabel, originalImageUrl, safePostUrl, safeImageUrl, validateImage } from './core.mjs';
 
-export function createView(document, { origin = location.origin, objectUrls = URL, confirmDelete = () => confirm('この投稿を削除しますか？'), confirmDiscard = () => confirm('保存していない変更があります。変更を破棄しますか？') } = {}) {
+export function createView(document, { origin = location.origin, objectUrls = URL, confirmDelete = () => confirm('この投稿を削除しますか？'), confirmDiscard = () => confirm('保存していない変更があります。変更を破棄しますか？'), confirmCategoryRemoval = ({ names, posts }) => confirm(`「${names.join('」「')}」を削除します。${posts ? `この${posts}件の投稿は「その他」（なければ未分類）として表示されます。` : ''}よろしいですか？`) } = {}) {
   const get = id => document.getElementById(id);
   const cards = new Map();
   const previews = { main: null, modal: null };
@@ -10,6 +10,10 @@ export function createView(document, { origin = location.origin, objectUrls = UR
   let editTrigger;
   let detailTrigger;
   let detailRecipe;
+  let categories = DEFAULT_CATEGORIES;
+  let categoryRows = [];
+  let categorySnapshot = '';
+  let categoryTrigger;
   const listeners = new AbortController();
   const make = (tag, className, text) => {
     const element = document.createElement(tag);
@@ -81,7 +85,7 @@ export function createView(document, { origin = location.origin, objectUrls = UR
     edit.type = 'button';
     edit.dataset.action = 'detail';
     edit.setAttribute('aria-label', `${recipe.memo.slice(0, 40) || 'メモなし'}：詳細を読む`);
-    if (recipe.category) edit.append(make('span', 'recipe-category', categoryLabel(recipe.category)));
+    if (recipe.category) edit.append(make('span', 'recipe-category', categoryLabel(recipe.category, categories)));
     edit.append(make('span', `recipe-memo${recipe.memo ? '' : ' empty'}`, recipe.memo.slice(0, 100) || 'メモなし'));
     edit.append(make('span', 'edit-hint', '詳細を読む'));
     edit.addEventListener('click', () => actions.openDetail(recipe.id));
@@ -194,6 +198,104 @@ export function createView(document, { origin = location.origin, objectUrls = UR
     resetNew();
     touchDraft();
   }
+  // 3つの選択欄（新規・編集・絞り込み）のカテゴリを、設定の順番で作り直す。
+  function setCategories(list) {
+    categories = list;
+    cards.clear();
+    for (const id of ['category', 'modalCategory', 'categoryFilterSelect']) {
+      const select = get(id);
+      const current = select.value;
+      for (const option of select.querySelectorAll('option[data-category]')) option.remove();
+      for (const item of list) {
+        const option = make('option', '', item.label);
+        option.value = item.value;
+        option.dataset.category = '';
+        select.append(option);
+      }
+      select.value = list.some(item => item.value === current) || ['', 'favorites'].includes(current) ? current : '';
+    }
+  }
+
+  const categoryDraft = () => categoryRows.map(row => ({ value: row.value, label: row.input.value }));
+  function addCategoryRow(value, label) {
+    const input = make('input');
+    input.type = 'text';
+    input.maxLength = 20;
+    input.value = label;
+    categoryRows.push({ value, input });
+  }
+  function renderCategoryRows(focus) {
+    const rows = categoryRows.map((row, index) => {
+      const item = make('li', 'category-row');
+      row.input.setAttribute('aria-label', `カテゴリ名 ${index + 1}`);
+      const button = (text, name, label, disabled, callback) => {
+        const element = make('button', '', text);
+        element.type = 'button';
+        element.dataset.move = name;
+        element.setAttribute('aria-label', label);
+        element.disabled = disabled;
+        element.addEventListener('click', callback);
+        return element;
+      };
+      const name = row.input.value || `${index + 1}番目`;
+      item.append(
+        row.input,
+        button('↑', 'up', `${name}を上へ`, index === 0, () => moveCategory(index, -1)),
+        button('↓', 'down', `${name}を下へ`, index === categoryRows.length - 1, () => moveCategory(index, 1)),
+        button('🗑️', 'delete', `${name}を削除`, false, () => removeCategory(index))
+      );
+      return item;
+    });
+    get('categoryList').replaceChildren(...rows);
+    if (focus) rows[focus.index]?.querySelector(`[data-move="${focus.name}"]:not(:disabled)`)?.focus();
+  }
+  function moveCategory(index, delta) {
+    const target = index + delta;
+    if (target < 0 || target >= categoryRows.length) return;
+    [categoryRows[index], categoryRows[target]] = [categoryRows[target], categoryRows[index]];
+    renderCategoryRows({ index: target, name: delta < 0 ? 'up' : 'down' });
+  }
+  function removeCategory(index) {
+    if (categoryRows.length <= 1) { notify('カテゴリを1つ以上残してください。', true); return; }
+    categoryRows.splice(index, 1);
+    renderCategoryRows({ index: Math.min(index, categoryRows.length - 1), name: 'delete' });
+  }
+  function addCategory() {
+    const input = get('categoryAddInput');
+    const label = input.value.trim();
+    if (!label) { notify('追加するカテゴリ名を入力してください。', true); input.focus(); return; }
+    if (categoryRows.length >= 30) { notify('カテゴリは30個までです。', true); return; }
+    addCategoryRow('', label);
+    input.value = '';
+    renderCategoryRows();
+    get('categoryList').lastElementChild?.scrollIntoView?.({ block: 'nearest' });
+    input.focus();
+  }
+  function openCategories(list) {
+    categoryRows = [];
+    for (const item of list) addCategoryRow(item.value, item.label);
+    categorySnapshot = JSON.stringify(categoryDraft());
+    get('categoryAddInput').value = '';
+    renderCategoryRows();
+    categoryTrigger = document.activeElement;
+    get('categoryModal').showModal();
+    document.body.classList.add('modal-open');
+    // スマホで開いた直後にキーボードが出ないよう、入力欄ではなく閉じるボタンに合わせる。
+    get('categoryClose').focus();
+  }
+  function closeCategories() {
+    const dialog = get('categoryModal');
+    if (dialog.open) dialog.close();
+    categoryRows = [];
+    categorySnapshot = '';
+    get('categoryList').replaceChildren();
+    get('categoryAddInput').value = '';
+    if (!get('editModal').open && !get('detailModal').open) document.body.classList.remove('modal-open');
+    if (categoryTrigger?.isConnected) categoryTrigger.focus();
+    categoryTrigger = null;
+  }
+  const categoriesChanged = () => get('categoryModal').open && JSON.stringify(categoryDraft()) !== categorySnapshot;
+
   function clearFilters() { get('searchInput').value = ''; get('categoryFilterSelect').value = ''; }
   // 共有メニューから届いたURL・画像を新規投稿フォームに入れる。保存は本人が押す。
   function applyShared({ url, memo, category, file }) {
@@ -205,7 +307,7 @@ export function createView(document, { origin = location.origin, objectUrls = UR
   function renderDetail(recipe) {
     if (detailRecipe === recipe) return;
     detailRecipe = recipe;
-    get('detailCategory').textContent = categoryLabel(recipe.category) || '未分類';
+    get('detailCategory').textContent = categoryLabel(recipe.category, categories) || '未分類';
     get('detailMemo').textContent = recipe.memo || 'メモはありません。';
     renderThumbnail(get('detailImage'), recipe.thumbnail_url, recipe.category);
     for (const [id, url] of [['detailSource', safePostUrl(recipe.post_url)], ['detailImageLink', safeImageUrl(recipe.thumbnail_url, origin)]]) {
@@ -240,6 +342,7 @@ export function createView(document, { origin = location.origin, objectUrls = UR
     files.modal = null;
     get('modalImageInput').value = '';
     get('modalMemo').value = '';
+    get('modalPostUrl').value = '';
     get('modalCategory').value = '';
     get('modalThumbnail').replaceChildren();
     const dialog = get('editModal');
@@ -253,6 +356,7 @@ export function createView(document, { origin = location.origin, objectUrls = UR
     files.modal = null;
     get('modalImageInput').value = '';
     get('modalMemo').value = recipe.memo;
+    get('modalPostUrl').value = recipe.post_url;
     get('modalCategory').value = recipe.category;
     renderThumbnail(get('modalThumbnail'), recipe.thumbnail_url, recipe.category);
     editTrigger = document.activeElement;
@@ -276,10 +380,14 @@ export function createView(document, { origin = location.origin, objectUrls = UR
     get('appContent').hidden = kind !== 'owner';
   }
 
-  function setBusy({ authorized, loaded, loading, savingNew, savingEdit, authBusy, actionsBusy }) {
+  function setBusy({ authorized, loaded, loading, savingNew, savingEdit, savingCategories, authBusy, actionsBusy }) {
     get('newFields').disabled = !authorized || !loaded || loading || savingNew;
     get('filterFields').disabled = !authorized || loading;
     get('modalFields').disabled = savingEdit;
+    get('manageCategoriesButton').disabled = !authorized || !loaded || loading || actionsBusy;
+    get('categoryFields').disabled = !!savingCategories;
+    get('categoryClose').disabled = !!savingCategories;
+    get('categorySaveButton').textContent = savingCategories ? '保存中…' : '保存';
     get('modalClose').disabled = savingEdit;
     get('saveNewButton').textContent = savingNew ? '保存中…' : '保存する';
     get('saveEditButton').textContent = savingEdit ? '保存中…' : '保存';
@@ -291,18 +399,23 @@ export function createView(document, { origin = location.origin, objectUrls = UR
 
   function bind(nextActions) {
     actions = nextActions;
-    for (const id of ['category', 'modalCategory', 'categoryFilterSelect']) {
-      const select = get(id);
-      for (const category of CATEGORIES) {
-        const option = make('option', '', category.label);
-        option.value = category.value;
-        select.append(option);
-      }
-    }
+    setCategories(categories);
     listen(get('loginButton'), 'click', () => act(actions.login));
     listen(get('logoutButton'), 'click', () => act(actions.logout));
     listen(get('newForm'), 'submit', event => { event.preventDefault(); act(actions.saveNew); });
     listen(get('clearFormButton'), 'click', actions.clearNew);
+    listen(get('manageCategoriesButton'), 'click', () => act(actions.openCategories));
+    listen(get('categoryForm'), 'submit', event => { event.preventDefault(); act(actions.saveCategories); });
+    // 名前の入力中にEnterで保存してしまわないよう、追加欄でだけ「追加」として扱う。
+    listen(get('categoryForm'), 'keydown', event => {
+      if (event.key !== 'Enter' || event.target.tagName !== 'INPUT') return;
+      event.preventDefault();
+      if (event.target === get('categoryAddInput')) addCategory();
+    });
+    listen(get('categoryAddButton'), 'click', addCategory);
+    listen(get('categoryCancelButton'), 'click', actions.closeCategories);
+    listen(get('categoryClose'), 'click', actions.closeCategories);
+    listen(get('categoryModal'), 'cancel', event => { event.preventDefault(); actions.closeCategories(); });
     listen(get('clearImageButton'), 'click', () => { clearImage(); touchDraft(); });
     for (const [id, type] of [['postUrl', 'input'], ['memo', 'input'], ['category', 'change']]) listen(get(id), type, touchDraft);
     listen(get('searchInput'), 'input', event => actions.search(event.target.value));
@@ -341,6 +454,7 @@ export function createView(document, { origin = location.origin, objectUrls = UR
     get('customToast').textContent = '';
     closeEdit();
     closeDetail();
+    closeCategories();
     resetNew();
     clearFilters();
     cards.clear();
@@ -350,8 +464,8 @@ export function createView(document, { origin = location.origin, objectUrls = UR
   function destroy() { reset(); listeners.abort(); clearTimeout(toastTimer); }
 
   return {
-    bind, setAuth, setBusy, renderList, notify, clearNew, clearFilters, applyShared, onDraftChange: listener => { draftListener = listener; }, openEdit, closeEdit, openDetail, closeDetail, renderDetail, reset, destroy, confirmDelete, confirmDiscard,
+    bind, setAuth, setBusy, renderList, notify, clearNew, clearFilters, applyShared, setCategories, openCategories, closeCategories, categoriesChanged, readCategories: categoryDraft, confirmCategoryRemoval, onDraftChange: listener => { draftListener = listener; }, openEdit, closeEdit, openDetail, closeDetail, renderDetail, reset, destroy, confirmDelete, confirmDiscard,
     readNew: () => ({ url: get('postUrl').value, memo: get('memo').value, category: get('category').value, file: files.main }),
-    readEdit: () => ({ memo: get('modalMemo').value, category: get('modalCategory').value, file: files.modal })
+    readEdit: () => ({ url: get('modalPostUrl').value, memo: get('modalMemo').value, category: get('modalCategory').value, file: files.modal })
   };
 }
