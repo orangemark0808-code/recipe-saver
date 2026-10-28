@@ -193,3 +193,11 @@ dialog.modal::backdrop { background: rgba(58,42,26,.45); }
 .tool-row { display: flex; gap: 8px; }
 .tool-heading { margin: 12px 0 6px; color: var(--muted); font-size: 12px; font-weight: 600; }
 .tool-hint { margin-top: 6px; color: var(--muted); font-size: 11px; }
+
+/* トリミング画面：①範囲を切り抜く／②一覧の表示位置 の切り替え */
+.crop-tabs { display: flex; gap: 6px; margin: 0 0 8px; }
+.crop-tab { flex: 1; font-size: 13px; color: var(--muted); }
+.crop-tab.active { border-color: var(--accent); background: var(--accent-light); color: var(--accent-dark); }
+.crop-stage.position-mode .crop-handle { display: none; }
+.crop-stage.position-mode .crop-box { cursor: grab; }
+.crop-stage.position-mode .crop-guide { border: 2px solid #fff; background: rgba(255, 255, 255, .12); box-shadow: 0 0 0 1px rgba(58, 42, 26, .35); }

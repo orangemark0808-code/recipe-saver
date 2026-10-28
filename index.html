@@ -151,7 +151,11 @@
     <div class="modal-content">
       <button id="cropClose" type="button" class="modal-close" aria-label="トリミングを閉じる">×</button>
       <h2 id="cropHeading" class="modal-header">画像をトリミング</h2>
-      <p class="category-hint">枠の中や、四隅・辺をドラッグして、表示する範囲を決めます。点線の中が、一覧のカードに表示される範囲です。元の画像は変わりません。</p>
+      <div class="crop-tabs">
+        <button id="cropTabCrop" type="button" class="crop-tab active" aria-pressed="true">① 範囲を切り抜く</button>
+        <button id="cropTabPosition" type="button" class="crop-tab" aria-pressed="false">② 一覧の表示位置</button>
+      </div>
+      <p id="cropHint" class="category-hint"></p>
       <div id="cropStage" class="crop-stage">
         <img id="cropImage" alt="トリミングする画像" draggable="false" referrerpolicy="no-referrer">
         <div id="cropBox" class="crop-box">
