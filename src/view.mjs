@@ -189,6 +189,21 @@ export function createView(document, { origin = location.origin, objectUrls = UR
   // 入力内容が変わったことを知らせる（下書きの自動保存用）。プログラムによる初期化では呼ばない。
   let draftListener = () => {};
   const touchDraft = () => draftListener();
+  // 文字の読み取りの進み具合を表示する。which は 'new'（新規投稿）か 'edit'（編集中）。
+  const ocrIds = { new: ['readTextButton', 'ocrStatus'], edit: ['modalReadTextButton', 'modalOcrStatus'] };
+  function setOcr(which, { busy, message = '' }) {
+    const [buttonId, statusId] = ocrIds[which];
+    get(buttonId).disabled = !!busy;
+    get(statusId).textContent = busy ? message : '';
+    get(statusId).hidden = !busy;
+  }
+  // 読み取った文字をメモに追記する（すでにメモがあれば、空行をあけて続ける）。
+  function insertMemoText(which, text) {
+    const field = get(which === 'edit' ? 'modalMemo' : 'memo');
+    const current = field.value.trimEnd();
+    field.value = (current ? `${current}\n\n${text}` : text).slice(0, field.maxLength > 0 ? field.maxLength : undefined);
+    if (which === 'new') touchDraft();
+  }
   function releasePreview(which) {
     if (previews[which]) objectUrls.revokeObjectURL(previews[which]);
     previews[which] = null;
@@ -198,6 +213,7 @@ export function createView(document, { origin = location.origin, objectUrls = UR
     files.main = null;
     get('imageInput').value = '';
     get('previewImg').removeAttribute('src');
+    setOcr('new', { busy: false });
     get('imagePreview').hidden = true;
     get('uploadArea').hidden = false;
   }
@@ -212,7 +228,10 @@ export function createView(document, { origin = location.origin, objectUrls = UR
       get('imagePreview').hidden = false;
       get('uploadArea').hidden = true;
       touchDraft();
-    } else renderThumbnail(get('modalThumbnail'), previews.modal, '', true);
+    } else {
+      renderThumbnail(get('modalThumbnail'), previews.modal, '', true);
+      get('modalReadTextButton').hidden = false;
+    }
   }
   // ログアウトや再読み込みなどの初期化。下書きには触れない。
   function resetNew() {
@@ -381,6 +400,8 @@ export function createView(document, { origin = location.origin, objectUrls = UR
     files.modal = null;
     get('modalImageInput').value = '';
     get('modalMemo').value = '';
+    get('modalReadTextButton').hidden = true;
+    setOcr('edit', { busy: false });
     get('modalPostUrl').value = '';
     get('modalCategory').value = '';
     get('modalThumbnail').replaceChildren();
@@ -396,6 +417,8 @@ export function createView(document, { origin = location.origin, objectUrls = UR
     get('modalImageInput').value = '';
     get('modalMemo').value = recipe.memo;
     get('modalPostUrl').value = recipe.post_url;
+    get('modalReadTextButton').hidden = !recipe.thumbnail_url;
+    setOcr('edit', { busy: false });
     get('modalCategory').value = recipe.category;
     renderThumbnail(get('modalThumbnail'), recipe.thumbnail_url, recipe.category);
     editTrigger = document.activeElement;
@@ -444,6 +467,8 @@ export function createView(document, { origin = location.origin, objectUrls = UR
     listen(get('newForm'), 'submit', event => { event.preventDefault(); act(actions.saveNew); });
     listen(get('clearFormButton'), 'click', actions.clearNew);
     get('manageCategoriesButton').replaceChildren(makeIcon(document, 'gear'));
+    listen(get('readTextButton'), 'click', () => act(() => actions.readText('new')));
+    listen(get('modalReadTextButton'), 'click', () => act(() => actions.readText('edit')));
     listen(get('manageCategoriesButton'), 'click', () => act(actions.openCategories));
     listen(get('categoryForm'), 'submit', event => { event.preventDefault(); act(actions.saveCategories); });
     // 名前の入力中にEnterで保存してしまわないよう、追加欄でだけ「追加」として扱う。
@@ -504,7 +529,7 @@ export function createView(document, { origin = location.origin, objectUrls = UR
   function destroy() { reset(); listeners.abort(); clearTimeout(toastTimer); }
 
   return {
-    bind, setAuth, setBusy, renderList, notify, clearNew, clearFilters, applyShared, setCategories, openCategories, closeCategories, categoriesChanged, readCategories: categoryDraft, confirmCategoryRemoval, onDraftChange: listener => { draftListener = listener; }, openEdit, closeEdit, openDetail, closeDetail, renderDetail, reset, destroy, confirmDelete, confirmDiscard,
+    bind, setAuth, setBusy, renderList, notify, clearNew, clearFilters, applyShared, setOcr, insertMemoText, setCategories, openCategories, closeCategories, categoriesChanged, readCategories: categoryDraft, confirmCategoryRemoval, onDraftChange: listener => { draftListener = listener; }, openEdit, closeEdit, openDetail, closeDetail, renderDetail, reset, destroy, confirmDelete, confirmDiscard,
     readNew: () => ({ url: get('postUrl').value, memo: get('memo').value, category: get('category').value, file: files.main }),
     readEdit: () => ({ url: get('modalPostUrl').value, memo: get('modalMemo').value, category: get('modalCategory').value, file: files.modal })
   };

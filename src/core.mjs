@@ -204,3 +204,27 @@ export function originalImageUrl(value) {
   const text = asText(value);
   return text.replace(CROP_SEGMENT, '');
 }
+
+// 文字認識の結果を、メモに入れやすい文章に整える。
+// 日本語の認識結果は「材 料 米 粉」「1 個」のように余計な空白が入りやすく、行の間に空行が入ったり、
+// 画面の飾りや記号だけの行が混ざったりする。
+const CJK = '\\u3040-\\u30ff\\u3400-\\u9fff\\uff00-\\uffef\\u3000-\\u303f';
+const BETWEEN_CJK = new RegExp(`([${CJK}])[ \\t]+(?=[${CJK}])`, 'g');
+// 数字のあとの単位（「1 個」「170 度」）と、かっこの内側の空白
+const AFTER_DIGIT = new RegExp(`([0-9])[ \\t]+(?=[${CJK}])`, 'g');
+const INSIDE_PAREN = /([(（])[ \\t]+|[ \\t]+([)）])/g;
+const WORD_CHAR = new RegExp(`[${CJK}A-Za-z0-9]`, 'g');
+export function cleanOcrText(raw) {
+  const kept = [];
+  for (const line of asText(raw).replace(/\r\n?/g, '\n').split('\n')) {
+    let text = line.replace(/[ \t]+/g, ' ').trim();
+    // 空白を詰めたあとに新しい隣り合わせができても詰め切れるよう、変化がなくなるまで繰り返す。
+    for (let previous = ''; previous !== text;) {
+      previous = text;
+      text = text.replace(BETWEEN_CJK, '$1').replace(AFTER_DIGIT, '$1').replace(INSIDE_PAREN, '$1$2');
+    }
+    // 記号や1文字だけの行は、画面の飾りなどの読み間違いとして捨てる。空行も詰める（行間が広いと空行が入るため）。
+    if ((text.match(WORD_CHAR) || []).length >= 2) kept.push(text);
+  }
+  return kept.join('\n');
+}

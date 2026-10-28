@@ -1,5 +1,6 @@
 import { ownerUid } from './config.mjs';
 import { createController } from './controller.mjs';
+import { createOcr } from './ocr.mjs';
 import { clearDraft, loadDraft, saveDraft, saveDraftImage } from './share.mjs';
 import { createView } from './view.mjs';
 
@@ -42,7 +43,7 @@ if (!ownerUid || ownerUid === 'REPLACE_WITH_OWNER_UID') {
   view.setAuth('checking');
   try {
     const { createBackend } = await import('./backend.mjs');
-    const controller = createController({ backend: createBackend(), view, ownerUid });
+    const controller = createController({ backend: createBackend(), view, ownerUid, ocr: createOcr() });
     controller.setShared(await readSharedContent());
     controller.start();
     watchDraft(view);

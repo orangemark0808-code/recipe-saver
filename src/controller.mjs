@@ -1,11 +1,11 @@
-import { DEFAULT_CATEGORIES, asText, filterRecipes, newCategoryId, normalizeCategory, normalizePostUrl, normalizeRecipe, sanitizeCategories, validateCategories, validateImage, validateMemo } from './core.mjs';
+import { DEFAULT_CATEGORIES, asText, cleanOcrText, originalImageUrl, filterRecipes, newCategoryId, normalizeCategory, normalizePostUrl, normalizeRecipe, sanitizeCategories, validateCategories, validateImage, validateMemo } from './core.mjs';
 
-export function createController({ backend, view, ownerUid, now = () => new Date() }) {
+export function createController({ backend, view, ownerUid, ocr, now = () => new Date() }) {
   const state = {
     user: null, recipes: [], loaded: false, loading: false, error: '',
     category: '', search: '', edit: null, detail: null, savingNew: false, savingEdit: false,
     pendingIds: new Set(), authBusy: false, shared: null,
-    categories: DEFAULT_CATEGORIES, savingCategories: false, categoryDialog: false
+    categories: DEFAULT_CATEGORIES, savingCategories: false, categoryDialog: false, ocrBusy: ''
   };
   let session = 0;
   let loadVersion = 0;
@@ -85,6 +85,7 @@ export function createController({ backend, view, ownerUid, now = () => new Date
     state.categories = DEFAULT_CATEGORIES;
     state.savingCategories = false;
     state.categoryDialog = false;
+    state.ocrBusy = '';
     view.setCategories(DEFAULT_CATEGORIES);
     view.reset();
     view.setAuth(user ? authorized() ? 'owner' : 'denied' : 'signed-out');
@@ -222,6 +223,43 @@ export function createController({ backend, view, ownerUid, now = () => new Date
     }
   }
 
+  // 画像から文字を読み取って、メモに追記する。'new' は新規投稿、'edit' は編集中の投稿。
+  const ocrMessages = { prepare: '準備しています（初回は部品の読み込みに時間がかかります）…', read: '文字を読み取っています…' };
+  async function readText(which) {
+    if (state.ocrBusy) return;
+    const token = session;
+    try {
+      if (!authorized()) throw new Error('ご本人のアカウントでログインしてください。');
+      if (!ocr) throw new Error('文字の読み取りを利用できません。');
+      const edit = state.edit;
+      let source;
+      if (which === 'edit') {
+        const recipe = state.recipes.find(item => item.id === edit?.id);
+        // 新しく選んだ画像を優先し、なければ保存済みの画像（切り抜く前の元の画像）を使う。
+        source = view.readEdit().file || (recipe?.thumbnail_url ? originalImageUrl(recipe.thumbnail_url) : null);
+      } else source = view.readNew().file;
+      if (!source) throw new Error('先に画像を選んでください。');
+      state.ocrBusy = which;
+      view.setOcr(which, { busy: true, message: ocrMessages.prepare });
+      const text = cleanOcrText(await ocr.recognize(source, ({ stage, progress }) => {
+        if (!isCurrent(token)) return;
+        const percent = Math.round(Math.min(1, Math.max(0, progress)) * 100);
+        view.setOcr(which, { busy: true, message: stage === 'read' ? `${ocrMessages.read} ${percent}%` : ocrMessages.prepare });
+      }));
+      if (!isCurrent(token)) return;
+      // 読み取り中に画像や編集対象が変わったら、結果は入れない。
+      const unchanged = which === 'edit' ? state.edit === edit : view.readNew().file === source;
+      if (!unchanged) return;
+      if (!text) { view.notify('文字を読み取れませんでした。文字がはっきり写った画像でお試しください。', true); return; }
+      view.insertMemoText(which, text);
+      view.notify('メモに読み取った文字を入れました。誤りがないか確認してください。');
+    } catch (error) { if (session === token) view.notify(message(error), true); }
+    finally {
+      state.ocrBusy = '';
+      if (session === token) view.setOcr(which, { busy: false });
+    }
+  }
+
   function openCategories() {
     if (!authorized() || !state.loaded || state.loading || busy()) return;
     state.categoryDialog = true;
@@ -294,7 +332,7 @@ export function createController({ backend, view, ownerUid, now = () => new Date
     login: () => authAction(() => backend.login()),
     logout: () => { if (!hasUnsavedChanges() || view.confirmDiscard()) return authAction(() => backend.logout()); },
     setShared(shared) { state.shared = shared && (shared.url || shared.memo || shared.category || shared.file) ? shared : null; },
-    reload, saveNew, saveEdit, openEdit, openCategories, closeCategories, saveCategories, closeEdit: () => closeEdit(), openDetail, closeDetail, hasUnsavedChanges,
+    reload, saveNew, saveEdit, openEdit, readText, openCategories, closeCategories, saveCategories, closeEdit: () => closeEdit(), openDetail, closeDetail, hasUnsavedChanges,
     clearNew: () => { if (!state.savingNew && (!hasNewChanges() || view.confirmDiscard())) view.clearNew(); },
     search(value) { state.search = asText(value); render(); },
     filter(value) { state.category = value === 'favorites' ? value : normalizeCategory(value, state.categories); render(); },
