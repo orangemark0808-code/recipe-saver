@@ -1,5 +1,5 @@
 import { makeIcon } from './icons.mjs';
-import { DEFAULT_CATEGORIES, FULL_CROP, canCropImage, categoryColor, categoryLabel, dragCropRect, labelColors, nextPaletteColor, originalImageUrl, safePostUrl, safeImageUrl, validateImage } from './core.mjs';
+import { CENTER_POSITION, DEFAULT_CATEGORIES, FULL_CROP, canCropImage, categoryColor, categoryLabel, dragCropRect, labelColors, nextPaletteColor, parseThumbPosition, originalImageUrl, safePostUrl, safeImageUrl, validateImage } from './core.mjs';
 
 export function createView(document, { origin = location.origin, objectUrls = URL, confirmDelete = () => confirm('この投稿を削除しますか？'), confirmDiscard = () => confirm('保存していない変更があります。変更を破棄しますか？'), confirmCategoryRemoval = ({ names, posts }) => confirm(`「${names.join('」「')}」を削除します。${posts ? `この${posts}件の投稿は「その他」（なければ未分類）として表示されます。` : ''}よろしいですか？`) } = {}) {
   const get = id => document.getElementById(id);
@@ -13,6 +13,8 @@ export function createView(document, { origin = location.origin, objectUrls = UR
   let detailRecipe;
   let categories = DEFAULT_CATEGORIES;
   let cropRect = { ...FULL_CROP };
+  let cropFocus = { ...CENTER_POSITION };
+  let cropMode = 'crop';
   let cropDrag = null;
   let cropTrigger;
   let categoryRows = [];
@@ -98,6 +100,10 @@ export function createView(document, { origin = location.origin, objectUrls = UR
       image.addEventListener('click', () => actions.openDetail(recipe.id));
     }
     renderThumbnail(image, recipe.thumbnail_url, recipe.category);
+    // 一覧のカードに表示する部分（トリミング画面の②で選んだ位置）。詳細画面は画像全体を表示する。
+    const position = parseThumbPosition(recipe.thumbnail_url);
+    const cardImage = image.querySelector('img');
+    if (position && cardImage) cardImage.style.objectPosition = `${position.x * 100}% ${position.y * 100}%`;
     const content = make('div', 'recipe-content');
     const edit = make('button', 'recipe-edit-zone');
     edit.type = 'button';
@@ -267,6 +273,21 @@ export function createView(document, { origin = location.origin, objectUrls = UR
   }
 
   // ---- 画像のトリミング。表示する範囲をドラッグで決める（元の画像は変えない）
+  let cropGuideFree = { x: 0, y: 0 };
+  const CROP_HINTS = {
+    crop: '枠の中や、四隅・辺をドラッグして、残す範囲を決めます。点線の中が、今、一覧のカードに表示される範囲です。元の画像は変わりません。',
+    position: '点線の枠をドラッグして、一覧のカードに表示する部分を決めます。詳細画面には、切り抜いた画像の全体が表示されます。'
+  };
+  // 「①範囲を切り抜く」と「②一覧の表示位置」の切り替え。
+  function setCropMode(mode) {
+    cropMode = mode;
+    get('cropStage').classList.toggle('position-mode', mode === 'position');
+    for (const [id, name] of [['cropTabCrop', 'crop'], ['cropTabPosition', 'position']]) {
+      get(id).classList.toggle('active', mode === name);
+      get(id).setAttribute('aria-pressed', String(mode === name));
+    }
+    get('cropHint').textContent = CROP_HINTS[mode];
+  }
   function renderCrop() {
     const stage = get('cropStage');
     const box = get('cropBox');
@@ -284,8 +305,9 @@ export function createView(document, { origin = location.origin, objectUrls = UR
     const guide = get('cropGuide');
     guide.style.width = `${guideWidth}px`;
     guide.style.height = `${guideHeight}px`;
-    guide.style.left = `${(boxWidth - guideWidth) / 2}px`;
-    guide.style.top = `${(boxHeight - guideHeight) / 2}px`;
+    guide.style.left = `${(boxWidth - guideWidth) * cropFocus.x}px`;
+    guide.style.top = `${(boxHeight - guideHeight) * cropFocus.y}px`;
+    cropGuideFree = { x: boxWidth - guideWidth, y: boxHeight - guideHeight };
   }
   // 画像が画面に収まる大きさに、操作する面の大きさを合わせる。
   function fitCropStage() {
@@ -295,8 +317,10 @@ export function createView(document, { origin = location.origin, objectUrls = UR
     get('cropStage').style.width = `${Math.round(image.naturalWidth * scale)}px`;
     get('cropStage').style.height = `${Math.round(image.naturalHeight * scale)}px`;
   }
-  function openCrop({ url, rect }) {
+  function openCrop({ url, rect, focus = CENTER_POSITION }) {
     cropRect = { ...rect };
+    cropFocus = { x: focus.x, y: focus.y };
+    setCropMode('crop');
     cropTrigger = document.activeElement;
     const image = get('cropImage');
     get('cropStage').style.visibility = 'hidden';
@@ -551,17 +575,29 @@ export function createView(document, { origin = location.origin, objectUrls = UR
     listen(cropStage, 'pointerdown', event => {
       if (!event.target.closest('#cropBox')) return;
       event.preventDefault();
-      cropDrag = { mode: event.target.closest('[data-handle]')?.dataset.handle || 'move', x: event.clientX, y: event.clientY, rect: { ...cropRect } };
+      cropDrag = cropMode === 'position'
+        ? { mode: 'guide', x: event.clientX, y: event.clientY, focus: { ...cropFocus }, free: { ...cropGuideFree } }
+        : { mode: event.target.closest('[data-handle]')?.dataset.handle || 'move', x: event.clientX, y: event.clientY, rect: { ...cropRect } };
       try { cropStage.setPointerCapture(event.pointerId); } catch {}
     });
     listen(cropStage, 'pointermove', event => {
       if (!cropDrag) return;
-      cropRect = dragCropRect(cropDrag.rect, cropDrag.mode, (event.clientX - cropDrag.x) / cropStage.clientWidth, (event.clientY - cropDrag.y) / cropStage.clientHeight);
+      if (cropDrag.mode === 'guide') {
+        // 点線の枠が動ける向き（枠の長い方）にだけ、指の動いた分だけ動かす。
+        const { free, focus } = cropDrag;
+        const clamp = value => Math.min(1, Math.max(0, value));
+        cropFocus = {
+          x: free.x > 0 ? clamp(focus.x + (event.clientX - cropDrag.x) / free.x) : focus.x,
+          y: free.y > 0 ? clamp(focus.y + (event.clientY - cropDrag.y) / free.y) : focus.y
+        };
+      } else cropRect = dragCropRect(cropDrag.rect, cropDrag.mode, (event.clientX - cropDrag.x) / cropStage.clientWidth, (event.clientY - cropDrag.y) / cropStage.clientHeight);
       renderCrop();
     });
     for (const type of ['pointerup', 'pointercancel']) listen(cropStage, type, () => { cropDrag = null; });
-    listen(get('cropApplyButton'), 'click', () => act(() => actions.applyCrop({ ...cropRect })));
-    listen(get('cropResetButton'), 'click', () => { cropRect = { ...FULL_CROP }; renderCrop(); });
+    listen(get('cropApplyButton'), 'click', () => act(() => actions.applyCrop({ ...cropRect }, { ...cropFocus })));
+    listen(get('cropResetButton'), 'click', () => { cropRect = { ...FULL_CROP }; cropFocus = { ...CENTER_POSITION }; renderCrop(); });
+    listen(get('cropTabCrop'), 'click', () => setCropMode('crop'));
+    listen(get('cropTabPosition'), 'click', () => setCropMode('position'));
     listen(get('cropCancelButton'), 'click', closeCrop);
     listen(get('cropClose'), 'click', closeCrop);
     listen(get('cropModal'), 'cancel', event => { event.preventDefault(); closeCrop(); });

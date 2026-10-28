@@ -1,4 +1,4 @@
-import { DEFAULT_CATEGORIES, FULL_CROP, asText, canCropImage, cleanOcrText, cropImageUrl, isFullCrop, originalImageUrl, parseCropRect, filterRecipes, newCategoryId, normalizeCategory, normalizePostUrl, normalizeRecipe, sanitizeCategories, validateCategories, validateImage, validateMemo } from './core.mjs';
+import { CENTER_POSITION, DEFAULT_CATEGORIES, FULL_CROP, asText, canCropImage, cleanOcrText, cropImageUrl, isFullCrop, originalImageUrl, parseCropRect, parseThumbPosition, withThumbPosition, filterRecipes, newCategoryId, normalizeCategory, normalizePostUrl, normalizeRecipe, sanitizeCategories, validateCategories, validateImage, validateMemo } from './core.mjs';
 
 export function createController({ backend, view, ownerUid, ocr, now = () => new Date() }) {
   const state = {
@@ -272,12 +272,13 @@ export function createController({ backend, view, ownerUid, ocr, now = () => new
     const current = edit.cropUrl ?? edit.thumb;
     if (!canCropImage(current)) { view.notify('この画像はトリミングできません。', true); return; }
     edit.cropBase = originalImageUrl(current);
-    view.openCrop({ url: edit.cropBase, rect: parseCropRect(current) ?? { ...FULL_CROP } });
+    view.openCrop({ url: edit.cropBase, rect: parseCropRect(current) ?? { ...FULL_CROP }, focus: parseThumbPosition(current) ?? { ...CENTER_POSITION } });
   }
-  function applyCrop(rect) {
+  function applyCrop(rect, focus) {
     const edit = state.edit;
     if (!authorized() || !edit?.cropBase) return;
-    edit.cropUrl = isFullCrop(rect) ? edit.cropBase : cropImageUrl(edit.cropBase, rect);
+    // 切り抜き範囲と、一覧に表示する部分の位置を、1つのURLにまとめる。
+    edit.cropUrl = withThumbPosition(isFullCrop(rect) ? edit.cropBase : cropImageUrl(edit.cropBase, rect), focus);
     view.setEditThumbnail(edit.cropUrl);
     view.closeCrop();
   }

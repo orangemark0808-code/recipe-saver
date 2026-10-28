@@ -228,7 +228,25 @@ export function cropScreenshotUrl(value, width, height, crop = SCREENSHOT_CROP) 
 // 切り抜き指定を外した元画像のURL。変換が使えない場合の表示用、トリミング画面の元画像にも使う。
 export function originalImageUrl(value) {
   const text = asText(value);
-  return text.replace(CROP_SEGMENT, '');
+  return text.replace(POSITION_HASH, '').replace(CROP_SEGMENT, '');
+}
+
+// 一覧のカードに表示する部分の位置。切り抜いた画像の中での位置を 0〜1 の割合で、URLの末尾（#pos=横,縦）に持つ。
+// 末尾の # 以降はサーバーに送られず、画像の取得や保存先のルールには影響しない。
+const POSITION_HASH = /#pos=([0-9.]+),([0-9.]+)$/;
+export const CENTER_POSITION = Object.freeze({ x: 0.5, y: 0.5 });
+export function parseThumbPosition(value) {
+  const match = asText(value).match(POSITION_HASH);
+  if (!match) return null;
+  const x = parseFloat(match[1]);
+  const y = parseFloat(match[2]);
+  return x >= 0 && x <= 1 && y >= 0 && y <= 1 ? { x, y } : null;
+}
+export function withThumbPosition(value, position) {
+  const base = asText(value).replace(POSITION_HASH, '');
+  if (!position || (Math.abs(position.x - 0.5) < 0.005 && Math.abs(position.y - 0.5) < 0.005)) return base;
+  const f = number => Math.min(1, Math.max(0, Number(number) || 0)).toFixed(3);
+  return `${base}#pos=${f(position.x)},${f(position.y)}`;
 }
 
 // 手動トリミング。範囲は元画像に対する割合（0〜1）で、x・y は左上、w・h は幅と高さ。
