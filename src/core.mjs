@@ -1,15 +1,19 @@
 // 初期カテゴリ。保存先に設定がないとき、また読み込めないときに使う。value は投稿に保存される識別子。
 export const DEFAULT_CATEGORIES = Object.freeze([
-  { value: 'snack', label: 'おやつ' },
-  { value: 'main', label: 'メイン' },
-  { value: 'side', label: '副菜' },
-  { value: 'soup', label: 'スープ・汁物' },
-  { value: 'kickboxing', label: 'キックボクシング' },
-  { value: 'it', label: 'IT関連' },
-  { value: 'beauty', label: '美容' },
-  { value: 'other', label: 'その他' }
+  { value: 'snack', label: 'おやつ', color: '#f5a3a3' },
+  { value: 'main', label: 'メイン', color: '#f4b860' },
+  { value: 'side', label: '副菜', color: '#9fd3a0' },
+  { value: 'soup', label: 'スープ・汁物', color: '#7fc8e8' },
+  { value: 'kickboxing', label: 'キックボクシング', color: '#e5776f' },
+  { value: 'it', label: 'IT関連', color: '#a8a4e6' },
+  { value: 'beauty', label: '美容', color: '#e3a8e0' },
+  { value: 'other', label: 'その他', color: '#c9b79c' }
 ].map(item => Object.freeze(item)));
 export const CATEGORIES = DEFAULT_CATEGORIES;
+// 新しいカテゴリに順に割り当てる色。白いカードの上でも枠線として見える、中くらいの濃さ。
+export const CATEGORY_PALETTE = Object.freeze(['#f5a3a3', '#f4b860', '#9fd3a0', '#7fc8e8', '#e5776f', '#a8a4e6', '#e3a8e0', '#c9b79c', '#8fd1c2', '#f2d16b']);
+const COLOR_PATTERN = /^#[0-9a-f]{6}$/i;
+const DARK_TEXT = '#3a2a1a';
 export const CATEGORY_LIMITS = Object.freeze({ maxItems: 30, maxLabel: 20 });
 const CATEGORY_ID = /^[a-z0-9_]{1,24}$/;
 
@@ -35,15 +39,54 @@ export function categoryLabel(value, categories = DEFAULT_CATEGORIES) {
   return categories.find(item => item.value === category)?.label || '';
 }
 
+function luminance(hex) {
+  const [r, g, b] = [1, 3, 5].map(index => parseInt(hex.slice(index, index + 2), 16) / 255)
+    .map(channel => channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4);
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+// 背景色の上で読みやすい文字色（濃い茶色か白のうち、コントラストが高い方）。
+export function readableTextColor(background) {
+  if (!COLOR_PATTERN.test(asText(background))) return DARK_TEXT;
+  const light = luminance(background);
+  const withWhite = 1.05 / (light + 0.05);
+  const withDark = (light + 0.05) / (luminance(DARK_TEXT) + 0.05);
+  return withWhite > withDark ? '#ffffff' : DARK_TEXT;
+}
+// まだ使われていないパレットの色。全部使われていたら順番に使い回す。
+export function nextPaletteColor(used) {
+  const taken = new Set(used.map(color => asText(color).toLowerCase()));
+  return CATEGORY_PALETTE.find(color => !taken.has(color)) ?? CATEGORY_PALETTE[taken.size % CATEGORY_PALETTE.length];
+}
+// カテゴリの色。設定にない・色がないときは空文字（カテゴリなしと同じ見た目）。
+export function categoryColor(value, categories = DEFAULT_CATEGORIES) {
+  const category = normalizeCategory(value, categories);
+  const color = asText(categories.find(item => item.value === category)?.color);
+  return COLOR_PATTERN.test(color) ? color.toLowerCase() : '';
+}
+// 色のないカテゴリに、同じ識別子の初期色か、使われていないパレットの色を付ける。
+function fillColors(items) {
+  const initialColor = item => DEFAULT_CATEGORIES.find(initial => initial.value === item.value)?.color;
+  // 初期カテゴリの色は先に確保して、新しいカテゴリの色と重ならないようにする。
+  const used = [...items.map(item => item.color), ...items.filter(item => !item.color).map(initialColor)].filter(Boolean);
+  return items.map(item => {
+    if (item.color) return item;
+    const color = initialColor(item) ?? nextPaletteColor(used);
+    used.push(color);
+    return { ...item, color };
+  });
+}
+
 // 編集画面から届いたカテゴリ一覧を検証して整える。問題があれば画面に出せる日本語の理由で例外にする。
 export function validateCategories(items) {
   if (!Array.isArray(items) || !items.length) throw new Error('カテゴリを1つ以上残してください。');
   if (items.length > CATEGORY_LIMITS.maxItems) throw new Error(`カテゴリは${CATEGORY_LIMITS.maxItems}個までです。`);
   const values = new Set();
   const labels = new Set();
-  return items.map(item => {
+  const normalized = items.map(item => {
     const value = asText(item?.value);
     const label = asText(item?.label).trim();
+    const color = asText(item?.color).trim().toLowerCase();
+    if (color && !COLOR_PATTERN.test(color)) throw new Error('カテゴリの色の指定が正しくありません。');
     if (!CATEGORY_ID.test(value)) throw new Error('カテゴリの識別子が正しくありません。');
     if (!label) throw new Error('カテゴリ名を入力してください。');
     if (label.length > CATEGORY_LIMITS.maxLabel) throw new Error(`カテゴリ名は${CATEGORY_LIMITS.maxLabel}文字以内で入力してください。`);
@@ -51,8 +94,9 @@ export function validateCategories(items) {
     if (labels.has(label)) throw new Error(`「${label}」が重複しています。別の名前にしてください。`);
     values.add(value);
     labels.add(label);
-    return { value, label };
+    return { value, label, color };
   });
+  return fillColors(normalized);
 }
 
 // 保存先から読んだ設定。形が正しくなければ null（初期カテゴリを使う）。

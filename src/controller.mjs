@@ -244,7 +244,7 @@ export function createController({ backend, view, ownerUid, now = () => new Date
       const categories = validateCategories(rows.map(row => {
         const value = row.value || newCategoryId(used);
         if (!row.value) used.push({ value });
-        return { value, label: row.label };
+        return { value, label: row.label, color: row.color };
       }));
       const removed = state.categories.filter(item => !categories.some(next => next.value === item.value));
       const posts = state.recipes.filter(recipe => removed.some(item => item.value === recipe.category)).length;

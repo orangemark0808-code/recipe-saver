@@ -1,5 +1,5 @@
 import { makeIcon } from './icons.mjs';
-import { DEFAULT_CATEGORIES, categoryLabel, originalImageUrl, safePostUrl, safeImageUrl, validateImage } from './core.mjs';
+import { DEFAULT_CATEGORIES, categoryColor, categoryLabel, nextPaletteColor, readableTextColor, originalImageUrl, safePostUrl, safeImageUrl, validateImage } from './core.mjs';
 
 export function createView(document, { origin = location.origin, objectUrls = URL, confirmDelete = () => confirm('この投稿を削除しますか？'), confirmDiscard = () => confirm('保存していない変更があります。変更を破棄しますか？'), confirmCategoryRemoval = ({ names, posts }) => confirm(`「${names.join('」「')}」を削除します。${posts ? `この${posts}件の投稿は「その他」（なければ未分類）として表示されます。` : ''}よろしいですか？`) } = {}) {
   const get = id => document.getElementById(id);
@@ -30,6 +30,7 @@ export function createView(document, { origin = location.origin, objectUrls = UR
   function notify(message, error = false) {
     const toast = get('customToast');
     toast.setAttribute('role', error ? 'alert' : 'status');
+    toast.classList.toggle('error', error);
     toast.textContent = message;
     toast.classList.add('show');
     clearTimeout(toastTimer);
@@ -63,9 +64,21 @@ export function createView(document, { origin = location.origin, objectUrls = UR
     container.append(img);
   }
 
+  // カテゴリの色をラベルに付ける。文字色は背景の明るさから自動で決める。
+  function colorChip(element, color) {
+    element.style.backgroundColor = color || '';
+    element.style.color = color ? readableTextColor(color) : '';
+  }
+
   function makeCard(recipe) {
     const card = make('article', 'recipe-card');
     card.dataset.recipeId = recipe.id;
+    // カテゴリの色を枠線にする（カテゴリなしは今までのグレーの枠線）。
+    const color = categoryColor(recipe.category, categories);
+    if (color) {
+      card.classList.add('has-category');
+      card.style.setProperty('--cat', color);
+    }
     const url = safePostUrl(recipe.post_url);
     const image = make(url ? 'a' : 'button', 'recipe-image-wrapper recipe-image-link');
     if (url) {
@@ -86,7 +99,11 @@ export function createView(document, { origin = location.origin, objectUrls = UR
     edit.type = 'button';
     edit.dataset.action = 'detail';
     edit.setAttribute('aria-label', `${recipe.memo.slice(0, 40) || 'メモなし'}：詳細を読む`);
-    if (recipe.category) edit.append(make('span', 'recipe-category', categoryLabel(recipe.category, categories)));
+    if (recipe.category) {
+      const chip = make('span', 'recipe-category', categoryLabel(recipe.category, categories));
+      colorChip(chip, color);
+      edit.append(chip);
+    }
     edit.append(make('span', `recipe-memo${recipe.memo ? '' : ' empty'}`, recipe.memo.slice(0, 100) || 'メモなし'));
     edit.append(make('span', 'edit-hint', '詳細を読む'));
     edit.addEventListener('click', () => actions.openDetail(recipe.id));
@@ -225,20 +242,25 @@ export function createView(document, { origin = location.origin, objectUrls = UR
     }
   }
 
-  const categoryDraft = () => categoryRows.map(row => ({ value: row.value, label: row.input.value }));
-  function addCategoryRow(value, label) {
+  const categoryDraft = () => categoryRows.map(row => ({ value: row.value, label: row.input.value, color: row.color.value }));
+  function addCategoryRow(value, label, colorValue) {
     const input = make('input');
     input.type = 'text';
     input.maxLength = 20;
     input.value = label;
-    categoryRows.push({ value, input });
+    // 色はスマホ標準の色選択で変えられる。
+    const color = make('input', 'category-color');
+    color.type = 'color';
+    color.value = colorValue;
+    categoryRows.push({ value, input, color });
   }
   function renderCategoryRows(focus) {
     const rows = categoryRows.map((row, index) => {
       const item = make('li', 'category-row');
       row.input.setAttribute('aria-label', `カテゴリ名 ${index + 1}`);
+      row.color.setAttribute('aria-label', `${row.input.value || `${index + 1}番目`}の色`);
       const button = (content, name, label, disabled, callback) => {
-        const element = make('button', name === 'delete' ? 'chip-btn' : '');
+        const element = make('button', name === 'delete' ? 'chip-btn delete-btn' : '');
         if (typeof content === 'string') element.textContent = content;
         else element.append(content);
         element.type = 'button';
@@ -250,6 +272,7 @@ export function createView(document, { origin = location.origin, objectUrls = UR
       };
       const name = row.input.value || `${index + 1}番目`;
       item.append(
+        row.color,
         row.input,
         button('↑', 'up', `${name}を上へ`, index === 0, () => moveCategory(index, -1)),
         button('↓', 'down', `${name}を下へ`, index === categoryRows.length - 1, () => moveCategory(index, 1)),
@@ -276,7 +299,7 @@ export function createView(document, { origin = location.origin, objectUrls = UR
     const label = input.value.trim();
     if (!label) { notify('追加するカテゴリ名を入力してください。', true); input.focus(); return; }
     if (categoryRows.length >= 30) { notify('カテゴリは30個までです。', true); return; }
-    addCategoryRow('', label);
+    addCategoryRow('', label, nextPaletteColor(categoryRows.map(row => row.color.value)));
     input.value = '';
     renderCategoryRows();
     get('categoryList').lastElementChild?.scrollIntoView?.({ block: 'nearest' });
@@ -284,7 +307,7 @@ export function createView(document, { origin = location.origin, objectUrls = UR
   }
   function openCategories(list) {
     categoryRows = [];
-    for (const item of list) addCategoryRow(item.value, item.label);
+    for (const item of list) addCategoryRow(item.value, item.label, item.color);
     categorySnapshot = JSON.stringify(categoryDraft());
     get('categoryAddInput').value = '';
     renderCategoryRows();
@@ -318,7 +341,10 @@ export function createView(document, { origin = location.origin, objectUrls = UR
   function renderDetail(recipe) {
     if (detailRecipe === recipe) return;
     detailRecipe = recipe;
+    const detailColor = categoryColor(recipe.category, categories);
     get('detailCategory').textContent = categoryLabel(recipe.category, categories) || '未分類';
+    get('detailCategory').classList.toggle('colored', !!detailColor);
+    colorChip(get('detailCategory'), detailColor);
     get('detailMemo').textContent = recipe.memo || 'メモはありません。';
     renderThumbnail(get('detailImage'), recipe.thumbnail_url, recipe.category);
     for (const [id, url] of [['detailSource', safePostUrl(recipe.post_url)], ['detailImageLink', safeImageUrl(recipe.thumbnail_url, origin)]]) {
@@ -339,6 +365,8 @@ export function createView(document, { origin = location.origin, objectUrls = UR
     get('detailImage').replaceChildren();
     get('detailMemo').textContent = '';
     get('detailCategory').textContent = '';
+    get('detailCategory').classList.remove('colored');
+    colorChip(get('detailCategory'), '');
     for (const id of ['detailSource', 'detailImageLink']) {
       get(id).removeAttribute('href');
       get(id).hidden = true;
