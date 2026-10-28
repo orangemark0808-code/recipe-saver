@@ -1,0 +1,9 @@
+{
+  "name": "recipe-saver",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "preview": "node scripts/preview.mjs"
+  }
+}

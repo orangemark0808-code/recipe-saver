@@ -1,0 +1,47 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { normalizeCategory, categoryLabel, normalizePostUrl, safePostUrl, safeImageUrl, normalizeRecipe, filterRecipes, validateImage, validateMemo } from '../src/core.mjs';
+
+test('旧カテゴリを表示・編集・検索で共通の値へ変換する', () => {
+  for (const [oldValue, newValue] of Object.entries({ dessert: 'snack', ai: 'it', bread: 'other', salad: 'other', drink: 'other' })) {
+    assert.equal(normalizeCategory(oldValue), newValue);
+    const recipe = normalizeRecipe('old', { category: oldValue });
+    assert.equal(recipe.category, newValue);
+    assert.equal(filterRecipes([recipe], newValue, categoryLabel(oldValue)).length, 1);
+  }
+  assert.equal(normalizeCategory('__proto__'), 'other');
+  assert.equal(normalizeCategory(''), '');
+});
+
+test('実行可能URL・認証情報入りURLを拒否し、通常URLは保つ', () => {
+  for (const url of ['javascript:alert(1)', 'data:text/html,test', 'file:///etc/passwd', 'https://user:password@example.com', 'not a url']) {
+    assert.equal(safePostUrl(url), '');
+    assert.throws(() => normalizePostUrl(url));
+  }
+  assert.equal(normalizePostUrl('https://example.com/recipe?id=123#steps'), 'https://example.com/recipe?id=123#steps');
+  assert.equal(normalizePostUrl('https://www.instagram.com/p/test/?igsh=tracking&utm_source=test'), 'https://www.instagram.com/p/test/');
+  assert.equal(safePostUrl(null), '');
+});
+
+test('画像はCloudinary HTTPSまたは同一オリジンのみ許可', () => {
+  assert.equal(safeImageUrl('https://res.cloudinary.com/demo/image/upload/a.jpg'), 'https://res.cloudinary.com/demo/image/upload/a.jpg');
+  for (const src of ['https://res.cloudinary.com.evil.invalid/image.jpg', 'http://res.cloudinary.com/a.jpg', 'javascript:alert(1)', 'https://user:password@res.cloudinary.com/a', null]) assert.equal(safeImageUrl(src), '');
+  assert.equal(safeImageUrl('http://127.0.0.1:4173/test.jpg', 'http://127.0.0.1:4173'), 'http://127.0.0.1:4173/test.jpg');
+  assert.equal(safeImageUrl('http://127.0.0.1:4173/test.jpg', 'https://example.com'), '');
+});
+
+test('不正な型でも検索・メモ表示を停止させず、DB内のidで文書IDを上書きしない', () => {
+  const recipe = normalizeRecipe('real-document-id', { id: 'spoofed', memo: 123, post_url: null, category: {}, favorite: 'false' });
+  assert.equal(recipe.id, 'real-document-id');
+  assert.equal(recipe.memo, '');
+  assert.equal(recipe.favorite, false);
+  assert.doesNotThrow(() => filterRecipes([recipe], '', 'メモ'));
+});
+
+test('画像の形式・容量、メモの上限を検証する', () => {
+  assert.throws(() => validateImage({ type: 'image/svg+xml', size: 100 }));
+  assert.throws(() => validateImage({ type: 'image/png', size: 10 * 1024 * 1024 + 1 }));
+  assert.ok(validateImage({ type: 'image/png', size: 100 }));
+  assert.throws(() => validateMemo('あ'.repeat(10001)));
+  assert.equal(validateMemo(' <b>本文</b> '), '<b>本文</b>');
+});

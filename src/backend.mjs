@@ -1,0 +1,63 @@
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+import { getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { firebaseConfig, ownerUid, cloudinary } from './config.mjs';
+import { normalizeRecipe, safeImageUrl, validateImage } from './core.mjs';
+
+export function createBackend() {
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+  const records = collection(db, 'insta_bookmarks');
+  function requireOwner() {
+    if (!ownerUid || auth.currentUser?.uid !== ownerUid) throw new Error('ご本人のアカウントでログインしてください。');
+  }
+  return {
+    watchAuth: (callback, onError) => onAuthStateChanged(auth, callback, onError),
+    login: () => signInWithPopup(auth, new GoogleAuthProvider()),
+    logout: () => signOut(auth),
+    async list() {
+      requireOwner();
+      const result = await getDocs(query(records, orderBy('created_at', 'desc')));
+      return result.docs.map(item => normalizeRecipe(item.id, item.data()));
+    },
+    async create(data) {
+      requireOwner();
+      const result = await addDoc(records, data);
+      return result.id;
+    },
+    async update(id, data) {
+      requireOwner();
+      if (!id) throw new Error('編集対象が見つかりません。');
+      await updateDoc(doc(records, id), data);
+    },
+    async remove(id) {
+      requireOwner();
+      if (!id) throw new Error('削除対象が見つかりません。');
+      await deleteDoc(doc(records, id));
+    },
+    async upload(file) {
+      requireOwner();
+      validateImage(file);
+      const form = new FormData();
+      form.append('file', file);
+      form.append('upload_preset', cloudinary.uploadPreset);
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 60000);
+      try {
+        const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudinary.cloudName}/image/upload`, {
+          method: 'POST', body: form, signal: controller.signal
+        });
+        if (!response.ok) throw new Error('画像アップロードに失敗しました。もう一度お試しください。');
+        const data = await response.json();
+        const url = safeImageUrl(data.secure_url);
+        if (!url) throw new Error('画像の保存先を確認できませんでした。');
+        requireOwner();
+        return url;
+      } catch (error) {
+        if (error.name === 'AbortError') throw new Error('画像アップロードが時間切れになりました。もう一度お試しください。');
+        throw error;
+      } finally { clearTimeout(timer); }
+    }
+  };
+}
