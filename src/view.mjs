@@ -190,10 +190,10 @@ export function createView(document, { origin = location.origin, objectUrls = UR
   let draftListener = () => {};
   const touchDraft = () => draftListener();
   // 文字の読み取りの進み具合を表示する。which は 'new'（新規投稿）か 'edit'（編集中）。
-  const ocrIds = { new: ['readTextButton', 'ocrStatus'], edit: ['modalReadTextButton', 'modalOcrStatus'] };
+  const ocrIds = { new: [['readTextButton'], 'ocrStatus'], edit: [['modalReadTextButton', 'modalOcrPickButton'], 'modalOcrStatus'] };
   function setOcr(which, { busy, message = '' }) {
-    const [buttonId, statusId] = ocrIds[which];
-    get(buttonId).disabled = !!busy;
+    const [buttonIds, statusId] = ocrIds[which];
+    for (const buttonId of buttonIds) get(buttonId).disabled = !!busy;
     get(statusId).textContent = busy ? message : '';
     get(statusId).hidden = !busy;
   }
@@ -469,6 +469,13 @@ export function createView(document, { origin = location.origin, objectUrls = UR
     get('manageCategoriesButton').replaceChildren(makeIcon(document, 'gear'));
     listen(get('readTextButton'), 'click', () => act(() => actions.readText('new')));
     listen(get('modalReadTextButton'), 'click', () => act(() => actions.readText('edit')));
+    // 別のスクショを選んで文字だけ読み取る。画像は保存せず、投稿のカバー画像は変えない。
+    listen(get('modalOcrPickButton'), 'click', () => get('modalOcrInput').click());
+    listen(get('modalOcrInput'), 'change', () => {
+      const file = get('modalOcrInput').files?.[0];
+      get('modalOcrInput').value = '';
+      if (file) act(() => actions.readText('edit', file));
+    });
     listen(get('manageCategoriesButton'), 'click', () => act(actions.openCategories));
     listen(get('categoryForm'), 'submit', event => { event.preventDefault(); act(actions.saveCategories); });
     // 名前の入力中にEnterで保存してしまわないよう、追加欄でだけ「追加」として扱う。

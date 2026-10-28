@@ -225,7 +225,7 @@ export function createController({ backend, view, ownerUid, ocr, now = () => new
 
   // 画像から文字を読み取って、メモに追記する。'new' は新規投稿、'edit' は編集中の投稿。
   const ocrMessages = { prepare: '準備しています（初回は部品の読み込みに時間がかかります）…', read: '文字を読み取っています…' };
-  async function readText(which) {
+  async function readText(which, picked = null) {
     if (state.ocrBusy) return;
     const token = session;
     try {
@@ -233,7 +233,9 @@ export function createController({ backend, view, ownerUid, ocr, now = () => new
       if (!ocr) throw new Error('文字の読み取りを利用できません。');
       const edit = state.edit;
       let source;
-      if (which === 'edit') {
+      // 別のスクショを選んだ場合は、その画像だけを読み取る（投稿の画像は変えない・保存もしない）。
+      if (picked) source = validateImage(picked);
+      else if (which === 'edit') {
         const recipe = state.recipes.find(item => item.id === edit?.id);
         // 新しく選んだ画像を優先し、なければ保存済みの画像（切り抜く前の元の画像）を使う。
         source = view.readEdit().file || (recipe?.thumbnail_url ? originalImageUrl(recipe.thumbnail_url) : null);
