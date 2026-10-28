@@ -116,7 +116,9 @@
               <span class="upload-hint">JPEG・PNG・WebP・GIF、10MB以下</span>
             </button>
             <input id="modalImageInput" type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
-            <button id="modalReadTextButton" type="button" class="read-text-button" hidden>画像から文字を読み取ってメモに入れる</button>
+            <button id="modalReadTextButton" type="button" class="read-text-button" hidden>表示中の画像から文字を読み取ってメモに入れる</button>
+            <button id="modalOcrPickButton" type="button" class="read-text-button">別のスクショから文字を読み取ってメモに入れる（画像は保存しません）</button>
+            <input id="modalOcrInput" type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
             <p id="modalOcrStatus" class="ocr-status" role="status" hidden></p>
           </div>
           <div class="input-group">
