@@ -5,7 +5,7 @@ import path from 'node:path';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const port = Number(process.env.RECIPE_PREVIEW_PORT || 4173);
-const allowed = new Set(['index.html', 'index_v28.html', 'styles.css', 'src/main.mjs', 'src/core.mjs', 'src/view.mjs', 'src/controller.mjs', 'src/backend.mjs', 'src/config.mjs']);
+const allowed = new Set(['index.html', 'index_v28.html', 'styles.css', 'src/main.mjs', 'src/core.mjs', 'src/view.mjs', 'src/controller.mjs', 'src/backend.mjs', 'src/config.mjs', 'favicon.svg', 'apple-touch-icon.png']);
 const server = http.createServer(async (request, response) => {
   response.setHeader('Cache-Control', 'no-store');
   response.setHeader('X-Content-Type-Options', 'nosniff');
@@ -23,11 +23,13 @@ const server = http.createServer(async (request, response) => {
     if (!allowed.has(filename)) { response.writeHead(404); response.end('Not found'); return; }
     if (filename === 'src/backend.mjs') filename = 'tests/fixtures/preview-backend.mjs';
     if (filename === 'src/config.mjs') filename = 'tests/fixtures/preview-config.mjs';
-    let content = await readFile(path.join(root, filename), 'utf8');
+    // PNGなどの画像はバイナリのまま返す。
+    let content = await readFile(path.join(root, filename));
     if (filename === 'index.html') {
-      content = content.replace('<body>', '<body><aside class="preview-banner">ローカル確認用・架空データ / 本番への接続なし</aside>');
+      content = content.toString('utf8').replace('<body>', '<body><aside class="preview-banner">ローカル確認用・架空データ / 本番への接続なし</aside>');
     }
-    response.setHeader('Content-Type', filename.endsWith('.mjs') ? 'text/javascript; charset=utf-8' : filename.endsWith('.css') ? 'text/css; charset=utf-8' : 'text/html; charset=utf-8');
+    const types = { '.svg': 'image/svg+xml', '.png': 'image/png' };
+    response.setHeader('Content-Type', types[path.extname(filename)] || (filename.endsWith('.mjs') ? 'text/javascript; charset=utf-8' : filename.endsWith('.css') ? 'text/css; charset=utf-8' : 'text/html; charset=utf-8'));
     response.end(request.method === 'HEAD' ? undefined : content);
   } catch { response.writeHead(500); response.end('Preview server error'); }
 });
