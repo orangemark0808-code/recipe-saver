@@ -185,3 +185,11 @@ dialog.modal::backdrop { background: rgba(58,42,26,.45); }
 .crop-handle[data-handle="w"]::before { left: 0; top: 10px; width: 0; height: 24px; border-left-width: 4px; }
 .crop-handle[data-handle="e"] { right: -2px; top: 50%; margin-top: -22px; cursor: ew-resize; }
 .crop-handle[data-handle="e"]::before { right: 0; top: 10px; width: 0; height: 24px; border-right-width: 4px; }
+
+/* 編集画面の道具ボタン：トリミングはグレー、文字の読み取りはオレンジ。アイコン付きで区別する */
+.tool-button { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; margin-top: 8px; font-size: 13px; color: var(--text); }
+.tool-button .icon { width: 18px; height: 18px; flex: none; }
+.tool-button.accent { flex: 1; margin-top: 0; border-color: var(--accent); color: var(--accent-dark); }
+.tool-row { display: flex; gap: 8px; }
+.tool-heading { margin: 12px 0 6px; color: var(--muted); font-size: 12px; font-weight: 600; }
+.tool-hint { margin-top: 6px; color: var(--muted); font-size: 11px; }
