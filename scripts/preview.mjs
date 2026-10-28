@@ -5,7 +5,7 @@ import path from 'node:path';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const port = Number(process.env.RECIPE_PREVIEW_PORT || 4173);
-const allowed = new Set(['index.html', 'index_v28.html', 'styles.css', 'src/main.mjs', 'src/core.mjs', 'src/view.mjs', 'src/controller.mjs', 'src/backend.mjs', 'src/config.mjs', 'favicon.svg', 'apple-touch-icon.png']);
+const allowed = new Set(['index.html', 'index_v28.html', 'styles.css', 'src/main.mjs', 'src/core.mjs', 'src/view.mjs', 'src/controller.mjs', 'src/backend.mjs', 'src/config.mjs', 'favicon.svg', 'apple-touch-icon.png', 'manifest.webmanifest', 'sw.js', 'src/share.mjs', 'icon-192.png', 'icon-512.png']);
 const server = http.createServer(async (request, response) => {
   response.setHeader('Cache-Control', 'no-store');
   response.setHeader('X-Content-Type-Options', 'nosniff');
@@ -28,7 +28,7 @@ const server = http.createServer(async (request, response) => {
     if (filename === 'index.html') {
       content = content.toString('utf8').replace('<body>', '<body><aside class="preview-banner">ローカル確認用・架空データ / 本番への接続なし</aside>');
     }
-    const types = { '.svg': 'image/svg+xml', '.png': 'image/png' };
+    const types = { '.svg': 'image/svg+xml', '.png': 'image/png', '.webmanifest': 'application/manifest+json', '.js': 'text/javascript; charset=utf-8' };
     response.setHeader('Content-Type', types[path.extname(filename)] || (filename.endsWith('.mjs') ? 'text/javascript; charset=utf-8' : filename.endsWith('.css') ? 'text/css; charset=utf-8' : 'text/html; charset=utf-8'));
     response.end(request.method === 'HEAD' ? undefined : content);
   } catch { response.writeHead(500); response.end('Preview server error'); }
