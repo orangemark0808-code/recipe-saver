@@ -278,7 +278,7 @@ export function createView(document, { origin = location.origin, objectUrls = UR
     crop: '枠の中や、四隅・辺をドラッグして、残す範囲を決めます。点線の中が、今、一覧のカードに表示される範囲です。元の画像は変わりません。',
     position: '点線の枠をドラッグして、一覧のカードに表示する部分を決めます。詳細画面には、切り抜いた画像の全体が表示されます。'
   };
-  // 「①範囲を切り抜く」と「②一覧の表示位置」の切り替え。
+  // 「①表示位置調整」と「②範囲を切り抜く」の切り替え。
   function setCropMode(mode) {
     cropMode = mode;
     get('cropStage').classList.toggle('position-mode', mode === 'position');
@@ -320,7 +320,7 @@ export function createView(document, { origin = location.origin, objectUrls = UR
   function openCrop({ url, rect, focus = CENTER_POSITION }) {
     cropRect = { ...rect };
     cropFocus = { x: focus.x, y: focus.y };
-    setCropMode('crop');
+    setCropMode('position');
     cropTrigger = document.activeElement;
     const image = get('cropImage');
     get('cropStage').style.visibility = 'hidden';
