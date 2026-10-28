@@ -9,8 +9,8 @@ const makeRecipe = (id, category = 'main') => normalizeRecipe(id, { memo: `${id}
 
 function harness(overrides = {}) {
   let authCallback;
-  const calls = { list: 0, create: [], update: [], remove: [], upload: 0 };
-  const screen = { notices: [], lists: [], closed: 0, cleared: 0, newInput: { url: 'https://www.instagram.com/p/example/', memo: '新しいメモ', category: 'snack', file: null }, editInput: { memo: '更新メモ', category: 'main', file: null } };
+  const calls = { list: 0, create: [], update: [], remove: [], upload: 0, categories: [], categoriesData: null };
+  const screen = { notices: [], lists: [], closed: 0, cleared: 0, newInput: { url: 'https://www.instagram.com/p/example/', memo: '新しいメモ', category: 'snack', file: null }, editInput: { url: 'https://www.instagram.com/p/example/', memo: '更新メモ', category: 'main', file: null }, categoryRows: [], allowRemoval: true };
   const backend = {
     watchAuth(callback) { authCallback = callback; return () => {}; },
     async login() {}, async logout() { authCallback(null); },
@@ -18,6 +18,8 @@ function harness(overrides = {}) {
     async create(data) { calls.create.push(data); return 'C'; },
     async update(id, data) { calls.update.push({ id, data }); },
     async remove(id) { calls.remove.push(id); },
+    async loadCategories() { return calls.categoriesData; },
+    async saveCategories(items) { calls.categories.push(items); },
     async upload() { calls.upload++; return 'https://res.cloudinary.com/demo/image/upload/new.jpg'; },
     ...overrides
   };
@@ -29,8 +31,14 @@ function harness(overrides = {}) {
     notify(message, error) { screen.notices.push({ message, error }); },
     clearNew() { screen.cleared++; screen.newInput = { url: '', memo: '', category: '', file: null }; }, clearFilters() {},
     openDetail(recipe) { screen.detail = recipe; }, renderDetail(recipe) { screen.detail = recipe; }, closeDetail() { screen.detail = null; },
-    openEdit(recipe) { screen.edit = recipe; screen.editInput = { memo: recipe.memo, category: recipe.category, file: null }; },
+    openEdit(recipe) { screen.edit = recipe; screen.editInput = { url: recipe.post_url, memo: recipe.memo, category: recipe.category, file: null }; },
     closeEdit() { screen.closed++; screen.edit = null; },
+    setCategories(list) { screen.categories = list; },
+    openCategories(list) { screen.categoryOpen = list; screen.categoryRows = list.map(item => ({ ...item })); },
+    closeCategories() { screen.categoryClosed = (screen.categoryClosed || 0) + 1; },
+    readCategories() { return screen.categoryRows; },
+    categoriesChanged() { return !!screen.categoriesChanged; },
+    confirmCategoryRemoval(info) { screen.removalAsked = info; return screen.allowRemoval; },
     confirmDelete() { return true; },
     confirmDiscard() { screen.discardAsked = (screen.discardAsked || 0) + 1; return screen.allowDiscard ?? true; },
     applyShared(shared) { screen.shared = shared; },
@@ -299,3 +307,102 @@ test('メモとカテゴリだけの下書きも、本人のログイン後に�
   await t.auth('owner');
   assert.equal(t.screen.shared, shared);
 }); 
+
+test('編集でURLを変えると保存され、変えなければURLは更新しない', async () => {
+  const t = harness();
+  await t.ready();
+  t.controller.openEdit('A');
+  t.screen.editInput.url = 'https://www.instagram.com/p/changed/?igsh=tracking';
+  await t.controller.saveEdit();
+  assert.equal(t.calls.update[0].data.post_url, 'https://www.instagram.com/p/changed/');
+  assert.equal(t.screen.list.recipes.find(item => item.id === 'A').post_url, 'https://www.instagram.com/p/changed/');
+  t.controller.openEdit('B');
+  t.screen.editInput.memo = 'メモだけ変更';
+  await t.controller.saveEdit();
+  assert.equal(Object.hasOwn(t.calls.update[1].data, 'post_url'), false);
+});
+
+test('編集で不正なURLや、URLも画像もない状態は保存しない。触っていない古いURLは弾かない', async () => {
+  const t = harness({ async list() { return [normalizeRecipe('A', { memo: 'a', post_url: 'javascript:alert(1)' })]; } });
+  await t.ready();
+  t.controller.openEdit('A');
+  t.screen.editInput.memo = '古いURLのまま更新';
+  await t.controller.saveEdit();
+  assert.equal(t.calls.update.length, 1);
+  assert.equal(Object.hasOwn(t.calls.update[0].data, 'post_url'), false);
+  t.controller.openEdit('A');
+  t.screen.editInput.url = 'not a url';
+  await t.controller.saveEdit();
+  assert.equal(t.calls.update.length, 1);
+  assert.equal(t.screen.notices.at(-1).error, true);
+  t.screen.editInput.url = '';
+  await t.controller.saveEdit();
+  assert.equal(t.calls.update.length, 1);
+  assert.match(t.screen.notices.at(-1).message, /投稿URLまたは画像/);
+});
+
+test('保存先のカテゴリ設定を読み込み、投稿と選択欄に使う。読めなければ初期カテゴリ', async () => {
+  const custom = { items: [{ value: 'curry', label: 'カレー' }, { value: 'other', label: 'その他' }] };
+  const t = harness({ async list() { return [normalizeRecipe('A', { category: 'curry' }, custom.items), normalizeRecipe('B', { category: 'main' })]; } });
+  t.calls.categoriesData = custom;
+  await t.ready();
+  assert.deepEqual(t.screen.categories.map(item => item.value), ['curry', 'other']);
+  assert.equal(t.screen.list.recipes.find(item => item.id === 'A').category, 'curry');
+  assert.equal(t.screen.list.recipes.find(item => item.id === 'B').category, 'other');
+  const broken = harness({ async loadCategories() { throw new Error('permission-denied'); } });
+  await broken.ready();
+  assert.equal(broken.screen.categories.length, 8);
+  assert.equal(broken.screen.list.recipes.length, 2);
+});
+
+test('カテゴリを追加・名前変更・並べ替えて保存する。新しい行にだけ識別子が付く', async () => {
+  const t = harness();
+  await t.ready();
+  t.controller.openCategories();
+  const rows = t.screen.categoryRows;
+  t.screen.categoryRows = [{ value: '', label: 'カレー' }, ...rows.slice(0, 2).reverse().map(row => row.value === 'main' ? { ...row, label: 'メインおかず' } : row), ...rows.slice(2)];
+  await t.controller.saveCategories();
+  const saved = t.calls.categories[0];
+  assert.equal(saved[0].label, 'カレー');
+  assert.match(saved[0].value, /^c[a-z0-9]+$/);
+  assert.deepEqual(saved.slice(1, 3).map(item => item.value), ['main', 'snack']);
+  assert.equal(saved[1].label, 'メインおかず');
+  assert.deepEqual(t.screen.categories, saved);
+  assert.equal(t.screen.categoryClosed, 1);
+  assert.match(t.screen.notices.at(-1).message, /カテゴリを保存/);
+});
+
+test('カテゴリの削除は確認し、その投稿は「その他」になる。やめれば何も変えない', async () => {
+  const t = harness();
+  await t.ready();
+  t.controller.openCategories();
+  t.screen.categoryRows = t.screen.categoryRows.filter(row => row.value !== 'side');
+  t.screen.allowRemoval = false;
+  await t.controller.saveCategories();
+  assert.deepEqual(t.screen.removalAsked, { names: ['副菜'], posts: 1 });
+  assert.equal(t.calls.categories.length, 0);
+  t.screen.allowRemoval = true;
+  await t.controller.saveCategories();
+  assert.equal(t.calls.categories.length, 1);
+  assert.equal(t.screen.list.recipes.find(item => item.id === 'B').category, 'other');
+});
+
+test('カテゴリが重複・空・保存失敗のときは保存せず理由を出し、画面は閉じない', async () => {
+  const t = harness();
+  await t.ready();
+  t.controller.openCategories();
+  t.screen.categoryRows = t.screen.categoryRows.map(row => row.value === 'main' ? { ...row, label: 'おやつ' } : row);
+  await t.controller.saveCategories();
+  assert.match(t.screen.notices.at(-1).message, /重複/);
+  t.screen.categoryRows = t.screen.categoryRows.map(row => row.value === 'main' ? { ...row, label: '  ' } : row);
+  await t.controller.saveCategories();
+  assert.match(t.screen.notices.at(-1).message, /カテゴリ名を入力/);
+  assert.equal(t.calls.categories.length, 0);
+  const failing = harness({ async saveCategories() { throw new Error('カテゴリを保存できませんでした。'); } });
+  await failing.ready();
+  failing.controller.openCategories();
+  await failing.controller.saveCategories();
+  assert.equal(failing.screen.notices.at(-1).error, true);
+  assert.equal(failing.screen.categoryClosed, undefined);
+  assert.equal(failing.screen.categories.length, 8);
+});
