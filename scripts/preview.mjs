@@ -5,7 +5,7 @@ import path from 'node:path';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const port = Number(process.env.RECIPE_PREVIEW_PORT || 4173);
-const allowed = new Set(['index.html', 'index_v28.html', 'styles.css', 'src/main.mjs', 'src/core.mjs', 'src/view.mjs', 'src/controller.mjs', 'src/backend.mjs', 'src/config.mjs', 'favicon.svg', 'apple-touch-icon.png', 'manifest.webmanifest', 'sw.js', 'src/share.mjs', 'icon-192.png', 'icon-512.png']);
+const allowed = new Set(['index.html', 'index_v28.html', 'styles.css', 'src/main.mjs', 'src/core.mjs', 'src/view.mjs', 'src/controller.mjs', 'src/backend.mjs', 'src/config.mjs', 'favicon.svg', 'apple-touch-icon.png', 'manifest.webmanifest', 'sw.js', 'src/share.mjs', 'src/icons.mjs', 'icon-192.png', 'icon-512.png']);
 const server = http.createServer(async (request, response) => {
   response.setHeader('Cache-Control', 'no-store');
   response.setHeader('X-Content-Type-Options', 'nosniff');
