@@ -1,3 +1,4 @@
+import { makeIcon } from './icons.mjs';
 import { DEFAULT_CATEGORIES, categoryLabel, originalImageUrl, safePostUrl, safeImageUrl, validateImage } from './core.mjs';
 
 export function createView(document, { origin = location.origin, objectUrls = URL, confirmDelete = () => confirm('この投稿を削除しますか？'), confirmDiscard = () => confirm('保存していない変更があります。変更を破棄しますか？'), confirmCategoryRemoval = ({ names, posts }) => confirm(`「${names.join('」「')}」を削除します。${posts ? `この${posts}件の投稿は「その他」（なければ未分類）として表示されます。` : ''}よろしいですか？`) } = {}) {
@@ -92,7 +93,15 @@ export function createView(document, { origin = location.origin, objectUrls = UR
     const footer = make('div', 'recipe-footer');
     footer.append(make('span', 'recipe-date', recipe.saved_date));
     const buttons = make('div', 'footer-actions');
-    const remove = make('button', 'delete-btn', '🗑️');
+    const editButton = make('button', 'chip-btn card-chip');
+    editButton.type = 'button';
+    editButton.title = '編集';
+    editButton.dataset.action = 'edit';
+    editButton.setAttribute('aria-label', '投稿を編集');
+    editButton.append(makeIcon(document, 'pencil'));
+    editButton.addEventListener('click', () => actions.openEdit(recipe.id));
+    const remove = make('button', 'chip-btn card-chip delete-btn');
+    remove.append(makeIcon(document, 'trash'));
     remove.type = 'button';
     remove.title = '削除';
     remove.dataset.action = 'delete';
@@ -105,7 +114,7 @@ export function createView(document, { origin = location.origin, objectUrls = UR
     favorite.setAttribute('aria-label', recipe.favorite ? 'お気に入りから外す' : 'お気に入りに追加');
     favorite.setAttribute('aria-pressed', String(recipe.favorite));
     favorite.addEventListener('click', () => act(() => actions.toggleFavorite(recipe.id)));
-    buttons.append(remove, favorite);
+    buttons.append(editButton, remove, favorite);
     footer.append(buttons);
     content.append(edit, footer);
     card.append(image, content);
@@ -228,8 +237,10 @@ export function createView(document, { origin = location.origin, objectUrls = UR
     const rows = categoryRows.map((row, index) => {
       const item = make('li', 'category-row');
       row.input.setAttribute('aria-label', `カテゴリ名 ${index + 1}`);
-      const button = (text, name, label, disabled, callback) => {
-        const element = make('button', '', text);
+      const button = (content, name, label, disabled, callback) => {
+        const element = make('button', name === 'delete' ? 'chip-btn' : '');
+        if (typeof content === 'string') element.textContent = content;
+        else element.append(content);
         element.type = 'button';
         element.dataset.move = name;
         element.setAttribute('aria-label', label);
@@ -242,7 +253,7 @@ export function createView(document, { origin = location.origin, objectUrls = UR
         row.input,
         button('↑', 'up', `${name}を上へ`, index === 0, () => moveCategory(index, -1)),
         button('↓', 'down', `${name}を下へ`, index === categoryRows.length - 1, () => moveCategory(index, 1)),
-        button('🗑️', 'delete', `${name}を削除`, false, () => removeCategory(index))
+        button(makeIcon(document, 'trash'), 'delete', `${name}を削除`, false, () => removeCategory(index))
       );
       return item;
     });
@@ -404,6 +415,7 @@ export function createView(document, { origin = location.origin, objectUrls = UR
     listen(get('logoutButton'), 'click', () => act(actions.logout));
     listen(get('newForm'), 'submit', event => { event.preventDefault(); act(actions.saveNew); });
     listen(get('clearFormButton'), 'click', actions.clearNew);
+    get('manageCategoriesButton').replaceChildren(makeIcon(document, 'gear'));
     listen(get('manageCategoriesButton'), 'click', () => act(actions.openCategories));
     listen(get('categoryForm'), 'submit', event => { event.preventDefault(); act(actions.saveCategories); });
     // 名前の入力中にEnterで保存してしまわないよう、追加欄でだけ「追加」として扱う。
