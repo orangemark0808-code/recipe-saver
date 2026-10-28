@@ -2,7 +2,7 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import { getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { firebaseConfig, ownerUid, cloudinary } from './config.mjs';
-import { normalizeRecipe, safeImageUrl, validateImage } from './core.mjs';
+import { cropScreenshotUrl, normalizeRecipe, safeImageUrl, validateImage } from './core.mjs';
 
 export function createBackend() {
   const app = initializeApp(firebaseConfig);
@@ -53,7 +53,8 @@ export function createBackend() {
         const url = safeImageUrl(data.secure_url);
         if (!url) throw new Error('画像の保存先を確認できませんでした。');
         requireOwner();
-        return url;
+        // 縦長のスクショは上下の余白を自動で切る。
+        return cropScreenshotUrl(url, data.width, data.height);
       } catch (error) {
         if (error.name === 'AbortError') throw new Error('画像アップロードが時間切れになりました。もう一度お試しください。');
         throw error;

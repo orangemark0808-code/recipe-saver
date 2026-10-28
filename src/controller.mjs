@@ -4,7 +4,7 @@ export function createController({ backend, view, ownerUid, now = () => new Date
   const state = {
     user: null, recipes: [], loaded: false, loading: false, error: '',
     category: '', search: '', edit: null, detail: null, savingNew: false, savingEdit: false,
-    pendingIds: new Set(), authBusy: false
+    pendingIds: new Set(), authBusy: false, shared: null
   };
   let session = 0;
   let loadVersion = 0;
@@ -78,7 +78,17 @@ export function createController({ backend, view, ownerUid, now = () => new Date
     view.reset();
     view.setAuth(user ? authorized() ? 'owner' : 'denied' : 'signed-out');
     render();
-    if (authorized()) await reload();
+    if (user && !authorized()) state.shared = null;
+    if (authorized()) { await reload(); applyShared(); }
+  }
+
+  // 共有メニューから届いた内容は、本人のログインと一覧の読み込みが済んでからフォームに入れる。
+  function applyShared() {
+    if (!authorized() || !state.shared) return;
+    const shared = state.shared;
+    state.shared = null;
+    view.applyShared(shared);
+    view.notify('共有された内容を入力しました。確認して保存してください。');
   }
 
   async function authAction(action) {
@@ -218,6 +228,7 @@ export function createController({ backend, view, ownerUid, now = () => new Date
   const actions = {
     login: () => authAction(() => backend.login()),
     logout: () => { if (!hasUnsavedChanges() || view.confirmDiscard()) return authAction(() => backend.logout()); },
+    setShared(shared) { state.shared = shared && (shared.url || shared.file) ? shared : null; },
     reload, saveNew, saveEdit, openEdit, closeEdit: () => closeEdit(), openDetail, closeDetail, hasUnsavedChanges,
     clearNew: () => { if (!state.savingNew && (!hasNewChanges() || view.confirmDiscard())) view.clearNew(); },
     search(value) { state.search = asText(value); render(); },

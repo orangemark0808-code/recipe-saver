@@ -1,4 +1,4 @@
-import { CATEGORIES, categoryLabel, safePostUrl, safeImageUrl, validateImage } from './core.mjs';
+import { CATEGORIES, categoryLabel, originalImageUrl, safePostUrl, safeImageUrl, validateImage } from './core.mjs';
 
 export function createView(document, { origin = location.origin, objectUrls = URL, confirmDelete = () => confirm('この投稿を削除しますか？'), confirmDiscard = () => confirm('保存していない変更があります。変更を破棄しますか？') } = {}) {
   const get = id => document.getElementById(id);
@@ -46,10 +46,14 @@ export function createView(document, { origin = location.origin, objectUrls = UR
     img.loading = preview ? 'eager' : 'lazy';
     img.decoding = 'async';
     img.referrerPolicy = 'no-referrer';
+    // 切り抜き指定つきURLが表示できないときは、一度だけ元画像のURLで再試行する。
+    let triedOriginal = false;
     img.addEventListener('error', () => {
+      const original = originalImageUrl(src);
+      if (!triedOriginal && original !== src) { triedOriginal = true; img.src = original; return; }
       container.classList.add('no-image');
       container.replaceChildren(placeholder(category));
-    }, { once: true });
+    });
     img.src = src;
     container.append(img);
   }
@@ -181,6 +185,11 @@ export function createView(document, { origin = location.origin, objectUrls = UR
     clearImage();
   }
   function clearFilters() { get('searchInput').value = ''; get('categoryFilterSelect').value = ''; }
+  // 共有メニューから届いたURL・画像を新規投稿フォームに入れる。保存は本人が押す。
+  function applyShared({ url, file }) {
+    if (url) get('postUrl').value = url;
+    if (file) chooseImage('main', file);
+  }
   function renderDetail(recipe) {
     if (detailRecipe === recipe) return;
     detailRecipe = recipe;
@@ -328,7 +337,7 @@ export function createView(document, { origin = location.origin, objectUrls = UR
   function destroy() { reset(); listeners.abort(); clearTimeout(toastTimer); }
 
   return {
-    bind, setAuth, setBusy, renderList, notify, clearNew, clearFilters, openEdit, closeEdit, openDetail, closeDetail, renderDetail, reset, destroy, confirmDelete, confirmDiscard,
+    bind, setAuth, setBusy, renderList, notify, clearNew, clearFilters, applyShared, openEdit, closeEdit, openDetail, closeDetail, renderDetail, reset, destroy, confirmDelete, confirmDiscard,
     readNew: () => ({ url: get('postUrl').value, memo: get('memo').value, category: get('category').value, file: files.main }),
     readEdit: () => ({ memo: get('modalMemo').value, category: get('modalCategory').value, file: files.modal })
   };

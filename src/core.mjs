@@ -90,3 +90,25 @@ export function validateImage(file) {
   if (file.size > 10 * 1024 * 1024) throw new Error('画像は10MB以下にしてください。');
   return file;
 }
+
+// スマホのスクショ（縦長）の上下にあるステータスバー等の余白を切るCloudinary変換。
+// top / height は元画像に対する割合。元の画像はCloudinaryに残り、指定を外せば取り出せる。
+export const SCREENSHOT_CROP = Object.freeze({ top: 0.08, height: 0.84, minRatio: 1.5 });
+const CROP_SEGMENT = /\/c_crop,w_1\.0,h_[\d.]+,y_[\d.]+(?=\/v\d+\/)/;
+
+export function cropScreenshotUrl(value, width, height, crop = SCREENSHOT_CROP) {
+  const src = safeImageUrl(value);
+  // 縦長でない写真や、すでに変換済みのURLはそのまま返す。
+  if (!src || !(width > 0) || !(height / width >= crop.minRatio)) return value;
+  const url = new URL(src);
+  const match = url.pathname.match(/^(\/[^/]+\/image\/upload\/)(v\d+\/.+)$/);
+  if (!match) return value;
+  url.pathname = `${match[1]}c_crop,w_1.0,h_${crop.height},y_${crop.top}/${match[2]}`;
+  return url.href;
+}
+
+// 切り抜き指定を外した元画像のURL。変換が使えない場合の表示用。
+export function originalImageUrl(value) {
+  const text = asText(value);
+  return text.replace(CROP_SEGMENT, '');
+}
