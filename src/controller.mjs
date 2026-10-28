@@ -1,4 +1,4 @@
-import { DEFAULT_CATEGORIES, asText, cleanOcrText, originalImageUrl, filterRecipes, newCategoryId, normalizeCategory, normalizePostUrl, normalizeRecipe, sanitizeCategories, validateCategories, validateImage, validateMemo } from './core.mjs';
+import { DEFAULT_CATEGORIES, FULL_CROP, asText, canCropImage, cleanOcrText, cropImageUrl, isFullCrop, originalImageUrl, parseCropRect, filterRecipes, newCategoryId, normalizeCategory, normalizePostUrl, normalizeRecipe, sanitizeCategories, validateCategories, validateImage, validateMemo } from './core.mjs';
 
 export function createController({ backend, view, ownerUid, ocr, now = () => new Date() }) {
   const state = {
@@ -158,7 +158,8 @@ export function createController({ backend, view, ownerUid, ocr, now = () => new
   function hasEditChanges() {
     if (!state.edit) return false;
     const input = view.readEdit();
-    return !!input.file || input.memo !== state.edit.memo || input.category !== state.edit.category || asText(input.url).trim() !== state.edit.url;
+    return !!input.file || input.memo !== state.edit.memo || input.category !== state.edit.category || asText(input.url).trim() !== state.edit.url
+      || (state.edit.cropUrl !== null && state.edit.cropUrl !== state.edit.thumb);
   }
   function hasUnsavedChanges() { return hasNewChanges() || hasEditChanges() || (state.categoryDialog && view.categoriesChanged()); }
   function openDetail(id) {
@@ -178,7 +179,7 @@ export function createController({ backend, view, ownerUid, ocr, now = () => new
     const recipe = state.recipes.find(item => item.id === id);
     if (!recipe) return;
     if (hasEditChanges() && !view.confirmDiscard()) return;
-    state.edit = { id, memo: recipe.memo, category: recipe.category, url: recipe.post_url };
+    state.edit = { id, memo: recipe.memo, category: recipe.category, url: recipe.post_url, thumb: recipe.thumbnail_url, cropBase: '', cropUrl: null };
     view.openEdit(recipe);
   }
   function closeEdit(discardConfirmed = false) {
@@ -208,6 +209,8 @@ export function createController({ backend, view, ownerUid, ocr, now = () => new
       }
       state.savingEdit = true;
       updateControls();
+      // トリミングだけ変えた場合は、画像は上げ直さず、切り抜き指定つきのURLに差し替える。
+      if (!file && edit.cropUrl && edit.cropUrl !== edit.thumb) update.thumbnail_url = edit.cropUrl;
       if (file) update.thumbnail_url = await backend.upload(file);
       if (!isCurrent(token)) return;
       await backend.update(edit.id, update);
@@ -260,6 +263,23 @@ export function createController({ backend, view, ownerUid, ocr, now = () => new
       state.ocrBusy = '';
       if (session === token) view.setOcr(which, { busy: false });
     }
+  }
+
+  // 画像のトリミング。編集画面から開き、範囲を決めて「適用」すると、編集画面のサムネイルに反映される。
+  function openCrop() {
+    const edit = state.edit;
+    if (!authorized() || !edit || state.savingEdit) return;
+    const current = edit.cropUrl ?? edit.thumb;
+    if (!canCropImage(current)) { view.notify('この画像はトリミングできません。', true); return; }
+    edit.cropBase = originalImageUrl(current);
+    view.openCrop({ url: edit.cropBase, rect: parseCropRect(current) ?? { ...FULL_CROP } });
+  }
+  function applyCrop(rect) {
+    const edit = state.edit;
+    if (!authorized() || !edit?.cropBase) return;
+    edit.cropUrl = isFullCrop(rect) ? edit.cropBase : cropImageUrl(edit.cropBase, rect);
+    view.setEditThumbnail(edit.cropUrl);
+    view.closeCrop();
   }
 
   function openCategories() {
@@ -334,7 +354,7 @@ export function createController({ backend, view, ownerUid, ocr, now = () => new
     login: () => authAction(() => backend.login()),
     logout: () => { if (!hasUnsavedChanges() || view.confirmDiscard()) return authAction(() => backend.logout()); },
     setShared(shared) { state.shared = shared && (shared.url || shared.memo || shared.category || shared.file) ? shared : null; },
-    reload, saveNew, saveEdit, openEdit, readText, openCategories, closeCategories, saveCategories, closeEdit: () => closeEdit(), openDetail, closeDetail, hasUnsavedChanges,
+    reload, saveNew, saveEdit, openEdit, openCrop, applyCrop, closeCrop: () => view.closeCrop(), readText, openCategories, closeCategories, saveCategories, closeEdit: () => closeEdit(), openDetail, closeDetail, hasUnsavedChanges,
     clearNew: () => { if (!state.savingNew && (!hasNewChanges() || view.confirmDiscard())) view.clearNew(); },
     search(value) { state.search = asText(value); render(); },
     filter(value) { state.category = value === 'favorites' ? value : normalizeCategory(value, state.categories); render(); },

@@ -1,5 +1,5 @@
 import { makeIcon } from './icons.mjs';
-import { DEFAULT_CATEGORIES, categoryColor, categoryLabel, labelColors, nextPaletteColor, originalImageUrl, safePostUrl, safeImageUrl, validateImage } from './core.mjs';
+import { DEFAULT_CATEGORIES, FULL_CROP, canCropImage, categoryColor, categoryLabel, dragCropRect, labelColors, nextPaletteColor, originalImageUrl, safePostUrl, safeImageUrl, validateImage } from './core.mjs';
 
 export function createView(document, { origin = location.origin, objectUrls = URL, confirmDelete = () => confirm('この投稿を削除しますか？'), confirmDiscard = () => confirm('保存していない変更があります。変更を破棄しますか？'), confirmCategoryRemoval = ({ names, posts }) => confirm(`「${names.join('」「')}」を削除します。${posts ? `この${posts}件の投稿は「その他」（なければ未分類）として表示されます。` : ''}よろしいですか？`) } = {}) {
   const get = id => document.getElementById(id);
@@ -12,6 +12,9 @@ export function createView(document, { origin = location.origin, objectUrls = UR
   let detailTrigger;
   let detailRecipe;
   let categories = DEFAULT_CATEGORIES;
+  let cropRect = { ...FULL_CROP };
+  let cropDrag = null;
+  let cropTrigger;
   let categoryRows = [];
   let categorySnapshot = '';
   let categoryTrigger;
@@ -109,7 +112,6 @@ export function createView(document, { origin = location.origin, objectUrls = UR
     edit.append(make('span', 'edit-hint', '詳細を読む'));
     edit.addEventListener('click', () => actions.openDetail(recipe.id));
     const footer = make('div', 'recipe-footer');
-    footer.append(make('span', 'recipe-date', recipe.saved_date));
     const buttons = make('div', 'footer-actions');
     const editButton = make('button', 'chip-btn card-chip');
     editButton.type = 'button';
@@ -232,6 +234,8 @@ export function createView(document, { origin = location.origin, objectUrls = UR
     } else {
       renderThumbnail(get('modalThumbnail'), previews.modal, '', true);
       get('modalReadTextButton').hidden = false;
+      // 新しく選んだ画像はまだ保存先にないので、トリミングは保存済みの画像だけに使う。
+      get('modalCropButton').hidden = true;
     }
   }
   // ログアウトや再読み込みなどの初期化。下書きには触れない。
@@ -261,6 +265,62 @@ export function createView(document, { origin = location.origin, objectUrls = UR
       select.value = list.some(item => item.value === current) || ['', 'favorites'].includes(current) ? current : '';
     }
   }
+
+  // ---- 画像のトリミング。表示する範囲をドラッグで決める（元の画像は変えない）
+  function renderCrop() {
+    const stage = get('cropStage');
+    const box = get('cropBox');
+    box.style.left = `${cropRect.x * 100}%`;
+    box.style.top = `${cropRect.y * 100}%`;
+    box.style.width = `${cropRect.w * 100}%`;
+    box.style.height = `${cropRect.h * 100}%`;
+    // 一覧のカードには、枠の中央の横長（4:3）が表示される。その範囲を点線で示す。
+    const boxWidth = cropRect.w * stage.clientWidth;
+    const boxHeight = cropRect.h * stage.clientHeight;
+    if (boxWidth <= 0 || boxHeight <= 0) return;
+    const wide = boxWidth / boxHeight > 4 / 3;
+    const guideWidth = wide ? boxHeight * 4 / 3 : boxWidth;
+    const guideHeight = wide ? boxHeight : boxWidth * 3 / 4;
+    const guide = get('cropGuide');
+    guide.style.width = `${guideWidth}px`;
+    guide.style.height = `${guideHeight}px`;
+    guide.style.left = `${(boxWidth - guideWidth) / 2}px`;
+    guide.style.top = `${(boxHeight - guideHeight) / 2}px`;
+  }
+  // 画像が画面に収まる大きさに、操作する面の大きさを合わせる。
+  function fitCropStage() {
+    const image = get('cropImage');
+    const content = get('cropModal').querySelector('.modal-content');
+    const scale = Math.min(Math.max(120, content.clientWidth - 40) / image.naturalWidth, Math.max(160, innerHeight * 0.55) / image.naturalHeight, 1);
+    get('cropStage').style.width = `${Math.round(image.naturalWidth * scale)}px`;
+    get('cropStage').style.height = `${Math.round(image.naturalHeight * scale)}px`;
+  }
+  function openCrop({ url, rect }) {
+    cropRect = { ...rect };
+    cropTrigger = document.activeElement;
+    const image = get('cropImage');
+    get('cropStage').style.visibility = 'hidden';
+    image.onload = () => { fitCropStage(); get('cropStage').style.visibility = ''; renderCrop(); };
+    image.onerror = () => { notify('画像を読み込めませんでした。通信状態を確認して、もう一度お試しください。', true); closeCrop(); };
+    image.src = url;
+    get('cropModal').showModal();
+    document.body.classList.add('modal-open');
+    get('cropApplyButton').focus();
+  }
+  function closeCrop() {
+    const dialog = get('cropModal');
+    if (dialog.open) dialog.close();
+    cropDrag = null;
+    const image = get('cropImage');
+    image.onload = null;
+    image.onerror = null;
+    image.removeAttribute('src');
+    if (!get('editModal').open && !get('detailModal').open && !get('categoryModal').open) document.body.classList.remove('modal-open');
+    if (cropTrigger?.isConnected) cropTrigger.focus();
+    cropTrigger = null;
+  }
+  // トリミングの結果を編集画面のサムネイルに反映する（保存は編集画面の「保存」で行う）。
+  function setEditThumbnail(url) { renderThumbnail(get('modalThumbnail'), url, ''); }
 
   const categoryDraft = () => categoryRows.map(row => ({ value: row.value, label: row.input.value, color: row.color.value }));
   function addCategoryRow(value, label, colorValue) {
@@ -365,6 +425,9 @@ export function createView(document, { origin = location.origin, objectUrls = UR
     get('detailCategory').textContent = categoryLabel(recipe.category, categories) || '未分類';
     get('detailCategory').classList.toggle('colored', !!detailColor);
     colorChip(get('detailCategory'), detailColor);
+    // 保存日は、一覧ではなく詳細画面に表示する。
+    get('detailDate').textContent = recipe.saved_date ? `保存日：${recipe.saved_date}` : '';
+    get('detailDate').hidden = !recipe.saved_date;
     get('detailMemo').textContent = recipe.memo || 'メモはありません。';
     renderThumbnail(get('detailImage'), recipe.thumbnail_url, recipe.category);
     for (const [id, url] of [['detailSource', safePostUrl(recipe.post_url)], ['detailImageLink', safeImageUrl(recipe.thumbnail_url, origin)]]) {
@@ -385,6 +448,8 @@ export function createView(document, { origin = location.origin, objectUrls = UR
     get('detailImage').replaceChildren();
     get('detailMemo').textContent = '';
     get('detailCategory').textContent = '';
+    get('detailDate').textContent = '';
+    get('detailDate').hidden = true;
     get('detailCategory').classList.remove('colored');
     colorChip(get('detailCategory'), '');
     for (const id of ['detailSource', 'detailImageLink']) {
@@ -402,6 +467,7 @@ export function createView(document, { origin = location.origin, objectUrls = UR
     get('modalImageInput').value = '';
     get('modalMemo').value = '';
     get('modalReadTextButton').hidden = true;
+    get('modalCropButton').hidden = true;
     setOcr('edit', { busy: false });
     get('modalPostUrl').value = '';
     get('modalCategory').value = '';
@@ -419,6 +485,7 @@ export function createView(document, { origin = location.origin, objectUrls = UR
     get('modalMemo').value = recipe.memo;
     get('modalPostUrl').value = recipe.post_url;
     get('modalReadTextButton').hidden = !recipe.thumbnail_url;
+    get('modalCropButton').hidden = !canCropImage(recipe.thumbnail_url);
     setOcr('edit', { busy: false });
     get('modalCategory').value = recipe.category;
     renderThumbnail(get('modalThumbnail'), recipe.thumbnail_url, recipe.category);
@@ -477,6 +544,25 @@ export function createView(document, { origin = location.origin, objectUrls = UR
       get('modalOcrInput').value = '';
       if (file) act(() => actions.readText('edit', file));
     });
+    listen(get('modalCropButton'), 'click', () => act(actions.openCrop));
+    const cropStage = get('cropStage');
+    listen(cropStage, 'pointerdown', event => {
+      if (!event.target.closest('#cropBox')) return;
+      event.preventDefault();
+      cropDrag = { mode: event.target.closest('[data-handle]')?.dataset.handle || 'move', x: event.clientX, y: event.clientY, rect: { ...cropRect } };
+      try { cropStage.setPointerCapture(event.pointerId); } catch {}
+    });
+    listen(cropStage, 'pointermove', event => {
+      if (!cropDrag) return;
+      cropRect = dragCropRect(cropDrag.rect, cropDrag.mode, (event.clientX - cropDrag.x) / cropStage.clientWidth, (event.clientY - cropDrag.y) / cropStage.clientHeight);
+      renderCrop();
+    });
+    for (const type of ['pointerup', 'pointercancel']) listen(cropStage, type, () => { cropDrag = null; });
+    listen(get('cropApplyButton'), 'click', () => act(() => actions.applyCrop({ ...cropRect })));
+    listen(get('cropResetButton'), 'click', () => { cropRect = { ...FULL_CROP }; renderCrop(); });
+    listen(get('cropCancelButton'), 'click', closeCrop);
+    listen(get('cropClose'), 'click', closeCrop);
+    listen(get('cropModal'), 'cancel', event => { event.preventDefault(); closeCrop(); });
     listen(get('manageCategoriesButton'), 'click', () => act(actions.openCategories));
     listen(get('categoryForm'), 'submit', event => { event.preventDefault(); act(actions.saveCategories); });
     // 名前の入力中にEnterで保存してしまわないよう、追加欄でだけ「追加」として扱う。
@@ -525,6 +611,7 @@ export function createView(document, { origin = location.origin, objectUrls = UR
     clearTimeout(toastTimer);
     get('customToast').classList.remove('show');
     get('customToast').textContent = '';
+    closeCrop();
     closeEdit();
     closeDetail();
     closeCategories();
@@ -537,7 +624,7 @@ export function createView(document, { origin = location.origin, objectUrls = UR
   function destroy() { reset(); listeners.abort(); clearTimeout(toastTimer); }
 
   return {
-    bind, setAuth, setBusy, renderList, notify, clearNew, clearFilters, applyShared, setOcr, insertMemoText, setCategories, openCategories, closeCategories, categoriesChanged, readCategories: categoryDraft, confirmCategoryRemoval, onDraftChange: listener => { draftListener = listener; }, openEdit, closeEdit, openDetail, closeDetail, renderDetail, reset, destroy, confirmDelete, confirmDiscard,
+    bind, setAuth, setBusy, renderList, notify, clearNew, clearFilters, applyShared, openCrop, closeCrop, setEditThumbnail, setOcr, insertMemoText, setCategories, openCategories, closeCategories, categoriesChanged, readCategories: categoryDraft, confirmCategoryRemoval, onDraftChange: listener => { draftListener = listener; }, openEdit, closeEdit, openDetail, closeDetail, renderDetail, reset, destroy, confirmDelete, confirmDiscard,
     readNew: () => ({ url: get('postUrl').value, memo: get('memo').value, category: get('category').value, file: files.main }),
     readEdit: () => ({ url: get('modalPostUrl').value, memo: get('modalMemo').value, category: get('modalCategory').value, file: files.modal })
   };

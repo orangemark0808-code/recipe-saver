@@ -211,7 +211,8 @@ export function validateImage(file) {
 // スマホのスクショ（縦長）の上下にあるステータスバー等の余白を切るCloudinary変換。
 // top / height は元画像に対する割合。元の画像はCloudinaryに残り、指定を外せば取り出せる。
 export const SCREENSHOT_CROP = Object.freeze({ top: 0.08, height: 0.84, minRatio: 1.5 });
-const CROP_SEGMENT = /\/c_crop,w_1\.0,h_[\d.]+,y_[\d.]+(?=\/v\d+\/)/;
+// 画像のURLに差し込む切り抜きの指定（自動トリミングも、手動のトリミングも同じ c_crop の形）。
+const CROP_SEGMENT = /\/c_crop,[A-Za-z0-9_.,]+(?=\/v\d+\/)/;
 
 export function cropScreenshotUrl(value, width, height, crop = SCREENSHOT_CROP) {
   const src = safeImageUrl(value);
@@ -224,10 +225,52 @@ export function cropScreenshotUrl(value, width, height, crop = SCREENSHOT_CROP) 
   return url.href;
 }
 
-// 切り抜き指定を外した元画像のURL。変換が使えない場合の表示用。
+// 切り抜き指定を外した元画像のURL。変換が使えない場合の表示用、トリミング画面の元画像にも使う。
 export function originalImageUrl(value) {
   const text = asText(value);
   return text.replace(CROP_SEGMENT, '');
+}
+
+// 手動トリミング。範囲は元画像に対する割合（0〜1）で、x・y は左上、w・h は幅と高さ。
+// 元の画像はCloudinaryに残り、切り抜き指定を外せばいつでも元に戻せる。
+export const FULL_CROP = Object.freeze({ x: 0, y: 0, w: 1, h: 1 });
+const MIN_CROP = 0.05;
+const fraction = value => Math.min(1, Math.max(0, Number(value) || 0));
+export function isFullCrop(rect) {
+  return !!rect && [rect.x, rect.y].every(value => value < 0.001) && [rect.w, rect.h].every(value => value > 0.999);
+}
+// URLに入っている切り抜き範囲。入っていなければ null（画像全体）。
+export function parseCropRect(value) {
+  const match = asText(value).match(/\/c_crop,([A-Za-z0-9_.,]+)(?=\/v\d+\/)/);
+  if (!match) return null;
+  const rect = { ...FULL_CROP };
+  for (const part of match[1].split(',')) {
+    const [key, text] = part.split('_');
+    const number = parseFloat(text);
+    if (['x', 'y', 'w', 'h'].includes(key) && Number.isFinite(number)) rect[key] = number;
+  }
+  if (rect.x < 0 || rect.y < 0 || rect.w < MIN_CROP || rect.h < MIN_CROP || rect.x + rect.w > 1.001 || rect.y + rect.h > 1.001) return null;
+  return rect;
+}
+// 元画像のURLに切り抜き範囲を差し込む。Cloudinaryの画像でなければ変えずに返す。
+export function cropImageUrl(originalUrl, rect) {
+  const src = safeImageUrl(originalImageUrl(originalUrl));
+  if (!src || !rect || isFullCrop(rect)) return src || asText(originalUrl);
+  const url = new URL(src);
+  const match = url.pathname.match(/^(\/[^/]+\/image\/upload\/)(v\d+\/.+)$/);
+  if (!match) return src;
+  const w = Math.max(MIN_CROP, fraction(rect.w));
+  const h = Math.max(MIN_CROP, fraction(rect.h));
+  const x = Math.min(fraction(rect.x), 1 - w);
+  const y = Math.min(fraction(rect.y), 1 - h);
+  const f = number => number.toFixed(4);
+  url.pathname = `${match[1]}c_crop,x_${f(x)},y_${f(y)},w_${f(w)},h_${f(h)}/${match[2]}`;
+  return url.href;
+}
+// トリミングできる画像（Cloudinaryにある画像）かどうか。
+export function canCropImage(value) {
+  const src = safeImageUrl(originalImageUrl(value));
+  return !!src && /^\/[^/]+\/image\/upload\/v\d+\/.+/.test(new URL(src).pathname);
 }
 
 // 文字認識の結果を、メモに入れやすい文章に整える。
@@ -252,4 +295,21 @@ export function cleanOcrText(raw) {
     if ((text.match(WORD_CHAR) || []).length >= 2) kept.push(text);
   }
   return kept.join('\n');
+}
+
+// ドラッグの動きから、新しい切り抜き範囲を求める。mode は 'move'（枠ごと動かす）か、
+// 辺・角の名前（n・s・e・w・ne・nw・se・sw）。dx・dy は画像全体に対する割合での動き。
+export function dragCropRect(rect, mode, dx, dy, min = MIN_CROP) {
+  const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
+  const next = { ...rect };
+  if (mode === 'move') {
+    next.x = clamp(rect.x + dx, 0, 1 - rect.w);
+    next.y = clamp(rect.y + dy, 0, 1 - rect.h);
+    return next;
+  }
+  if (mode.includes('w')) { const left = clamp(rect.x + dx, 0, rect.x + rect.w - min); next.x = left; next.w = rect.x + rect.w - left; }
+  if (mode.includes('e')) next.w = clamp(rect.w + dx, min, 1 - rect.x);
+  if (mode.includes('n')) { const top = clamp(rect.y + dy, 0, rect.y + rect.h - min); next.y = top; next.h = rect.y + rect.h - top; }
+  if (mode.includes('s')) next.h = clamp(rect.h + dy, min, 1 - rect.y);
+  return next;
 }
