@@ -47,7 +47,7 @@ textarea { min-height: 88px; resize: vertical; }
 .recipes-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
 .recipes-header h2 { font-size: 17px; }
 .recipe-count { color: var(--muted); font-size: 12px; }
-#filterFields { display: grid; grid-template-columns: minmax(0, 1fr) 125px; gap: 8px; margin-bottom: 12px; }
+#filterFields { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; margin-bottom: 12px; }
 .search-box, .filter-select-wrap { min-width: 0; }
 .recipes-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .recipe-card { display: flex; flex-direction: column; min-width: 0; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
@@ -64,8 +64,7 @@ button.recipe-image-wrapper { padding: 0; border: 0; border-radius: 0; min-heigh
 .recipe-memo { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; line-height: 1.55; }
 .recipe-memo.empty { color: var(--muted); }
 .edit-hint { display: block; color: var(--accent-dark); font-size: 12px; margin: 7px 0; }
-.recipe-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 4px; margin-top: auto; border-top: 1px solid var(--border); }
-.recipe-date { color: var(--muted); font-size: 10px; white-space: nowrap; }
+.recipe-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 0 4px; margin-top: auto; border-top: 1px solid var(--border); }
 .footer-actions { display: flex; margin-left: auto; }
 .favorite-btn { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 40px; min-height: 44px; padding: 0; border: 0; background: transparent; color: var(--muted); }
 .favorite-btn { font-size: 23px; }
@@ -84,6 +83,7 @@ dialog.modal::backdrop { background: rgba(58,42,26,.45); }
 .detail-header .modal-header { margin: 0; }
 .detail-header .modal-close { position: static; float: none; margin: 0; flex: 0 0 44px; }
 .detail-category { font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+.detail-date { font-size: 12px; color: var(--muted); margin: -4px 0 10px; }
 .detail-image { background: var(--surface2); border-radius: 8px; overflow: hidden; }
 .detail-image img { display: block; width: 100%; height: auto; max-height: min(42dvh, 320px); object-fit: contain; }
 .detail-image.no-image { display: none; }
@@ -160,3 +160,20 @@ dialog.modal::backdrop { background: rgba(58,42,26,.45); }
 .ocr-status { margin-top: 6px; color: var(--accent-dark); font-size: 12px; line-height: 1.6; }
 #imagePreview { flex-wrap: wrap; }
 #imagePreview .read-text-button, #imagePreview .ocr-status { flex: 1 0 100%; margin-top: 0; }
+
+/* 画像のトリミング画面 */
+.crop-stage { position: relative; margin: 0 auto 4px; overflow: hidden; border-radius: 8px; background: var(--surface2); touch-action: none; user-select: none; -webkit-user-select: none; }
+.crop-stage img { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.crop-box { position: absolute; border: 2px solid #fff; box-shadow: 0 0 0 9999px rgba(58, 42, 26, .55); cursor: move; touch-action: none; }
+.crop-guide { position: absolute; border: 1.5px dashed rgba(255, 255, 255, .9); pointer-events: none; }
+/* 丸い印は枠の内側に置く（画像の端でも見切れず、指でつかみやすい） */
+.crop-handle { position: absolute; width: 24px; height: 24px; border: 2px solid #fff; border-radius: 50%; background: var(--accent); touch-action: none; }
+.crop-handle::after { content: ""; position: absolute; inset: -10px; }
+.crop-handle[data-handle="nw"] { left: 0; top: 0; cursor: nwse-resize; }
+.crop-handle[data-handle="n"] { left: 50%; top: 0; margin-left: -12px; cursor: ns-resize; }
+.crop-handle[data-handle="ne"] { right: 0; top: 0; cursor: nesw-resize; }
+.crop-handle[data-handle="w"] { left: 0; top: 50%; margin-top: -12px; cursor: ew-resize; }
+.crop-handle[data-handle="e"] { right: 0; top: 50%; margin-top: -12px; cursor: ew-resize; }
+.crop-handle[data-handle="sw"] { left: 0; bottom: 0; cursor: nesw-resize; }
+.crop-handle[data-handle="s"] { left: 50%; bottom: 0; margin-left: -12px; cursor: ns-resize; }
+.crop-handle[data-handle="se"] { right: 0; bottom: 0; cursor: nwse-resize; }

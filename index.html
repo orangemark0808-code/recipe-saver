@@ -73,7 +73,7 @@
             <label for="categoryFilterSelect">カテゴリで絞り込む</label>
             <div class="filter-select-row">
               <select id="categoryFilterSelect" class="category-filter-select">
-                <option value="">すべて</option><option value="favorites">お気に入り</option>
+                <option value="">all</option><option value="favorites">お気に入り</option>
               </select>
               <button id="manageCategoriesButton" type="button" class="chip-btn gear-button" aria-label="カテゴリを編集" title="カテゴリを編集"></button>
             </div>
@@ -91,6 +91,7 @@
         <button id="detailClose" type="button" class="modal-close" aria-label="詳細画面を閉じる" autofocus>×</button>
       </div>
       <p id="detailCategory" class="detail-category"></p>
+      <p id="detailDate" class="detail-date" hidden></p>
       <div id="detailImage" class="detail-image"></div>
       <a id="detailImageLink" class="text-link" target="_blank" rel="noopener noreferrer" hidden>画像を別タブで拡大 ↗</a>
       <h3 class="detail-memo-heading">メモ</h3>
@@ -116,6 +117,7 @@
               <span class="upload-hint">JPEG・PNG・WebP・GIF、10MB以下</span>
             </button>
             <input id="modalImageInput" type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
+            <button id="modalCropButton" type="button" class="read-text-button" hidden>画像をトリミング（表示する範囲を変える）</button>
             <button id="modalReadTextButton" type="button" class="read-text-button" hidden>表示中の画像から文字を読み取ってメモに入れる</button>
             <button id="modalOcrPickButton" type="button" class="read-text-button">別のスクショから文字を読み取ってメモに入れる（画像は保存しません）</button>
             <input id="modalOcrInput" type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
@@ -139,6 +141,27 @@
           </div>
         </fieldset>
       </form>
+    </div>
+  </dialog>
+  <dialog id="cropModal" class="modal" aria-labelledby="cropHeading">
+    <div class="modal-content">
+      <button id="cropClose" type="button" class="modal-close" aria-label="トリミングを閉じる">×</button>
+      <h2 id="cropHeading" class="modal-header">画像をトリミング</h2>
+      <p class="category-hint">枠や丸い印をドラッグして、表示する範囲を決めます。点線の中が、一覧のカードに表示される範囲です。元の画像は変わりません。</p>
+      <div id="cropStage" class="crop-stage">
+        <img id="cropImage" alt="トリミングする画像" draggable="false" referrerpolicy="no-referrer">
+        <div id="cropBox" class="crop-box">
+          <div id="cropGuide" class="crop-guide"></div>
+          <span class="crop-handle" data-handle="nw"></span><span class="crop-handle" data-handle="n"></span><span class="crop-handle" data-handle="ne"></span>
+          <span class="crop-handle" data-handle="w"></span><span class="crop-handle" data-handle="e"></span>
+          <span class="crop-handle" data-handle="sw"></span><span class="crop-handle" data-handle="s"></span><span class="crop-handle" data-handle="se"></span>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button id="cropApplyButton" type="button" class="primary">適用</button>
+        <button id="cropResetButton" type="button">全体に戻す</button>
+        <button id="cropCancelButton" type="button">キャンセル</button>
+      </div>
     </div>
   </dialog>
   <dialog id="categoryModal" class="modal" aria-labelledby="categoryHeading">
