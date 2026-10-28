@@ -140,7 +140,13 @@ dialog.modal::backdrop { background: rgba(58,42,26,.45); }
 .delete-btn:hover { background-color: #6f6f6f; }
 
 /* カテゴリの色：カードの枠線とラベル。文字色は画面側で背景の明るさから決める */
+/* 枠線は元の色を少し暗く、下の部分の背景は元の色を薄めた色にする。color-mix が使えない古いブラウザでは元の色の枠線だけになる */
 .recipe-card.has-category { border: 2px solid var(--cat); }
+@supports (color: color-mix(in srgb, red 50%, white)) {
+  .recipe-card.has-category { border-color: color-mix(in srgb, var(--cat) 80%, black); }
+  .recipe-card.has-category .recipe-content { background: color-mix(in srgb, var(--cat) 30%, white); }
+  .recipe-card.has-category .recipe-footer { border-top-color: color-mix(in srgb, var(--cat) 45%, white); }
+}
 .detail-category.colored { display: inline-block; padding: 2px 10px; border-radius: 6px; font-weight: 600; }
 .category-row input[type="color"] { flex: none; width: 36px; min-height: 44px; padding: 3px; border: 1px solid var(--border); border-radius: 8px; background: #fff; cursor: pointer; }
 .category-row button { width: 40px; }
