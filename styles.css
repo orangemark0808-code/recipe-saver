@@ -116,3 +116,14 @@ dialog.modal::backdrop { background: rgba(58,42,26,.45); }
   .detail-actions .source-link { flex-basis: 100%; order: 1; }
 }
 @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+
+/* カテゴリの編集（歯車ボタンとダイアログ） */
+.filter-select-row { display: flex; gap: 8px; }
+.filter-select-row select { flex: 1; min-width: 0; }
+.gear-button { flex: none; width: 44px; padding: 0; font-size: 20px; line-height: 1; }
+.category-hint { margin: 0 0 12px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.category-list { display: grid; gap: 8px; margin: 0 0 14px; padding: 0; list-style: none; }
+.category-row, .category-add { display: flex; gap: 6px; align-items: center; }
+.category-row input[type="text"], .category-add input[type="text"] { flex: 1 1 auto; width: auto; min-width: 0; }
+.category-row button, .category-add button { flex: none; padding: 0 10px; }
+.category-row button { width: 44px; padding: 0; }

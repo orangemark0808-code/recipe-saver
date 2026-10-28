@@ -69,9 +69,12 @@
           </div>
           <div class="filter-select-wrap">
             <label for="categoryFilterSelect">カテゴリで絞り込む</label>
-            <select id="categoryFilterSelect" class="category-filter-select">
-              <option value="">すべて</option><option value="favorites">お気に入り</option>
-            </select>
+            <div class="filter-select-row">
+              <select id="categoryFilterSelect" class="category-filter-select">
+                <option value="">すべて</option><option value="favorites">お気に入り</option>
+              </select>
+              <button id="manageCategoriesButton" type="button" class="gear-button" aria-label="カテゴリを編集" title="カテゴリを編集">⚙️</button>
+            </div>
           </div>
         </fieldset>
         <div id="recipesGrid" class="recipes-grid"></div>
@@ -113,6 +116,10 @@
             <input id="modalImageInput" type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
           </div>
           <div class="input-group">
+            <label for="modalPostUrl">Instagram投稿URL（任意）</label>
+            <input type="url" id="modalPostUrl" maxlength="2048" placeholder="https://instagram.com/p/ABC123...">
+          </div>
+          <div class="input-group">
             <label for="modalCategory">カテゴリ</label>
             <select id="modalCategory"><option value="">選択してください</option></select>
           </div>
@@ -123,6 +130,29 @@
           <div class="modal-actions">
             <button id="saveEditButton" type="submit" class="primary">保存</button>
             <button id="cancelEditButton" type="button">キャンセル / 閉じる</button>
+          </div>
+        </fieldset>
+      </form>
+    </div>
+  </dialog>
+  <dialog id="categoryModal" class="modal" aria-labelledby="categoryHeading">
+    <div class="modal-content">
+      <button id="categoryClose" type="button" class="modal-close" aria-label="カテゴリ編集を閉じる">×</button>
+      <h2 id="categoryHeading" class="modal-header">カテゴリを編集</h2>
+      <form id="categoryForm">
+        <fieldset id="categoryFields">
+          <p class="category-hint">名前の変更、↑↓で並べ替え、🗑️で削除ができます。削除したカテゴリの投稿は「その他」として表示されます。</p>
+          <ul id="categoryList" class="category-list"></ul>
+          <div class="input-group">
+            <label for="categoryAddInput">カテゴリを追加</label>
+            <div class="category-add">
+              <input type="text" id="categoryAddInput" maxlength="20" placeholder="新しいカテゴリ名（20文字まで）">
+              <button id="categoryAddButton" type="button">追加</button>
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button id="categorySaveButton" type="submit" class="primary">保存</button>
+            <button id="categoryCancelButton" type="button">キャンセル</button>
           </div>
         </fieldset>
       </form>
