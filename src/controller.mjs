@@ -135,7 +135,13 @@ export function createController({ backend, view, ownerUid, ocr, now = () => new
       const category = normalizeCategory(input.category, state.categories);
       state.savingNew = true;
       updateControls();
-      const thumbnail = file ? await backend.upload(file) : null;
+      let thumbnail = file ? await backend.upload(file) : null;
+      // 新規登録時に「表示位置を調整」していれば、その範囲と位置をアップロードした画像のURLに入れる。
+      // 調整画面では元の画像全体を見て決めているので、自動の上下カットより手動の指定を優先する。
+      if (thumbnail && input.crop && canCropImage(thumbnail)) {
+        const { rect, focus } = input.crop;
+        thumbnail = withThumbPosition(isFullCrop(rect) ? originalImageUrl(thumbnail) : cropImageUrl(thumbnail, rect), focus);
+      }
       // アップロード中のログアウトなどで、別セッションへ処理を持ち越さない。
       if (!isCurrent(token)) return;
       const date = now();

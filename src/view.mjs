@@ -18,6 +18,10 @@ export function createView(document, { origin = location.origin, objectUrls = UR
   let cropMode = 'crop';
   let cropDrag = null;
   let cropTrigger;
+  // トリミング画面をどこから開いたか。'edit'（編集画面）か 'new'（新規登録のカバー画像）。
+  let cropTarget = 'edit';
+  // 新規登録のカバー画像で決めた範囲と表示位置。保存時にアップロードした画像のURLへ反映する。
+  let newCrop = null;
   let categoryRows = [];
   let categorySnapshot = '';
   let categoryTrigger;
@@ -223,6 +227,10 @@ export function createView(document, { origin = location.origin, objectUrls = UR
   // 新規投稿のカバー画像欄を、今の画像に合わせて表示し直す。
   function renderCover() {
     const has = !!files.main;
+    // カバー画像が変わったら、前の画像で決めた表示位置は使わない。
+    if (previews.main !== newCrop?.url) newCrop = null;
+    get('newCropButton').textContent = newCrop ? '表示位置を調整（設定済み）' : '表示位置を調整';
+    get('newCropButton').prepend(makeIcon(document, 'crop'));
     if (has) get('previewImg').src = previews.main;
     else get('previewImg').removeAttribute('src');
     get('imagePreview').hidden = !has;
@@ -411,7 +419,8 @@ export function createView(document, { origin = location.origin, objectUrls = UR
     get('cropStage').style.width = `${Math.round(image.naturalWidth * scale)}px`;
     get('cropStage').style.height = `${Math.round(image.naturalHeight * scale)}px`;
   }
-  function openCrop({ url, rect, focus = CENTER_POSITION }) {
+  function openCrop({ url, rect, focus = CENTER_POSITION }, target = 'edit') {
+    cropTarget = target;
     cropRect = { ...rect };
     cropFocus = { x: focus.x, y: focus.y };
     setCropMode('position');
@@ -439,6 +448,17 @@ export function createView(document, { origin = location.origin, objectUrls = UR
   }
   // トリミングの結果を編集画面のサムネイルに反映する（保存は編集画面の「保存」で行う）。
   function setEditThumbnail(url) { renderThumbnail(get('modalThumbnail'), url, ''); }
+  // 新規登録のカバー画像（まだ保存前の画像）で、表示位置・切り抜く範囲を決める。
+  function openNewCrop() {
+    if (!files.main || !previews.main) return;
+    openCrop({ url: previews.main, rect: newCrop?.rect ?? { ...FULL_CROP }, focus: newCrop?.focus ?? { ...CENTER_POSITION } }, 'new');
+  }
+  function applyNewCrop(rect, focus) {
+    newCrop = { url: previews.main, rect, focus };
+    renderCover();
+    closeCrop();
+    notify('表示位置を設定しました。保存すると反映されます。');
+  }
 
   const categoryDraft = () => categoryRows.map(row => ({ value: row.value, label: row.input.value, color: row.color.value }));
   function addCategoryRow(value, label, colorValue) {
@@ -611,7 +631,9 @@ export function createView(document, { origin = location.origin, objectUrls = UR
     editTrigger = document.activeElement;
     get('editModal').showModal();
     document.body.classList.add('modal-open');
-    get('modalMemo').focus();
+    // 開いたときは画面の先頭（画像）を表示する。メモ欄にカーソルを置くと、メモまで流れてしまうため。
+    get('modalClose').focus({ preventScroll: true });
+    get('editModal').querySelector('.modal-content').scrollTop = 0;
   }
 
   function setAuth(kind) {
@@ -690,7 +712,8 @@ export function createView(document, { origin = location.origin, objectUrls = UR
       renderCrop();
     });
     for (const type of ['pointerup', 'pointercancel']) listen(cropStage, type, () => { cropDrag = null; });
-    listen(get('cropApplyButton'), 'click', () => act(() => actions.applyCrop({ ...cropRect }, { ...cropFocus })));
+    listen(get('cropApplyButton'), 'click', () => act(() => cropTarget === 'new' ? applyNewCrop({ ...cropRect }, { ...cropFocus }) : actions.applyCrop({ ...cropRect }, { ...cropFocus })));
+    listen(get('newCropButton'), 'click', openNewCrop);
     listen(get('cropResetButton'), 'click', () => { cropRect = { ...FULL_CROP }; cropFocus = { ...CENTER_POSITION }; renderCrop(); });
     listen(get('cropTabCrop'), 'click', () => setCropMode('crop'));
     listen(get('cropTabPosition'), 'click', () => setCropMode('position'));
@@ -765,7 +788,7 @@ export function createView(document, { origin = location.origin, objectUrls = UR
 
   return {
     bind, setAuth, setBusy, renderList, notify, clearNew, clearFilters, applyShared, openCrop, closeCrop, setEditThumbnail, setOcr, insertMemoText, setCategories, openCategories, closeCategories, categoriesChanged, readCategories: categoryDraft, confirmCategoryRemoval, onDraftChange: listener => { draftListener = listener; }, openEdit, closeEdit, openDetail, closeDetail, renderDetail, reset, destroy, confirmDelete, confirmDiscard,
-    readNew: () => ({ url: get('postUrl').value, memo: get('memo').value, category: get('category').value, file: files.main, ocrFiles: ocrItems.map(item => item.file) }),
+    readNew: () => ({ url: get('postUrl').value, memo: get('memo').value, category: get('category').value, file: files.main, crop: files.main && newCrop ? { rect: newCrop.rect, focus: newCrop.focus } : null, ocrFiles: ocrItems.map(item => item.file) }),
     readEdit: () => ({ url: get('modalPostUrl').value, memo: get('modalMemo').value, category: get('modalCategory').value, file: files.modal })
   };
 }
