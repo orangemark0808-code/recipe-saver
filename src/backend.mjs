@@ -16,7 +16,12 @@ export function createBackend() {
   }
   return {
     watchAuth: (callback, onError) => onAuthStateChanged(auth, callback, onError),
-    login: () => signInWithPopup(auth, new GoogleAuthProvider()),
+    login: () => {
+      // iPadなどで別のGoogleアカウントが勝手に選ばれないよう、毎回アカウント選択画面を出す。
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+      return signInWithPopup(auth, provider);
+    },
     logout: () => signOut(auth),
     async list() {
       requireOwner();

@@ -86,6 +86,9 @@ export function createController({ backend, view, ownerUid, ocr, now = () => new
     state.savingCategories = false;
     state.categoryDialog = false;
     state.ocrBusy = '';
+    // iPadのホーム画面アプリでは、ログイン画面が閉じた知らせが届かず「処理中」のまま止まることがある。
+    // ログイン状態が変わった時点で処理は終わっているので、ここで解除してログアウトを押せるようにする。
+    state.authBusy = false;
     view.setCategories(DEFAULT_CATEGORIES);
     view.reset();
     view.setAuth(user ? authorized() ? 'owner' : 'denied' : 'signed-out');
