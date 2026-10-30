@@ -670,3 +670,21 @@ test('ログイン処理が終わらなくても、ログイン状態が変わ�
   await t.controller.logout();
   assert.equal(logouts, 1);
 });
+
+test('新規登録で表示位置を調整した画像は、保存時にその範囲と位置をURLに入れる', async () => {
+  const t = harness({ async upload() { return 'https://res.cloudinary.com/demo/image/upload/c_crop,w_1.0,h_0.84,y_0.08/v1/new.jpg'; } });
+  await t.ready();
+  const file = { type: 'image/png', size: 100 };
+  // 位置だけ変えた場合：自動の上下カットは外し、元の画像に位置を付ける。
+  t.screen.newInput = { ...t.screen.newInput, file, crop: { rect: { x: 0, y: 0, w: 1, h: 1 }, focus: { x: 0.5, y: 0.2 } } };
+  await t.controller.saveNew();
+  assert.equal(t.calls.create.at(-1).thumbnail_url, 'https://res.cloudinary.com/demo/image/upload/v1/new.jpg#pos=0.500,0.200');
+  // 範囲も切り抜いた場合。
+  t.screen.newInput = { url: '', memo: '', category: '', file, crop: { rect: { x: 0.1, y: 0.2, w: 0.5, h: 0.4 }, focus: { x: 0.5, y: 0.5 } } };
+  await t.controller.saveNew();
+  assert.equal(t.calls.create.at(-1).thumbnail_url, 'https://res.cloudinary.com/demo/image/upload/c_crop,x_0.1000,y_0.2000,w_0.5000,h_0.4000/v1/new.jpg');
+  // 調整しなかった場合は、これまでどおり。
+  t.screen.newInput = { url: '', memo: '', category: '', file, crop: null };
+  await t.controller.saveNew();
+  assert.equal(t.calls.create.at(-1).thumbnail_url, 'https://res.cloudinary.com/demo/image/upload/c_crop,w_1.0,h_0.84,y_0.08/v1/new.jpg');
+});
