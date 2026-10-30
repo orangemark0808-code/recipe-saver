@@ -1,4 +1,4 @@
-import { CENTER_POSITION, DEFAULT_CATEGORIES, FULL_CROP, asText, canCropImage, cleanOcrText, cropImageUrl, isFullCrop, originalImageUrl, parseCropRect, parseThumbPosition, withThumbPosition, filterRecipes, newCategoryId, normalizeCategory, normalizePostUrl, normalizeRecipe, sanitizeCategories, validateCategories, validateImage, validateMemo } from './core.mjs';
+import { CENTER_POSITION, DEFAULT_CATEGORIES, FULL_CROP, OCR_IMAGE_LIMIT, asText, canCropImage, cleanOcrText, cropImageUrl, isFullCrop, originalImageUrl, parseCropRect, parseThumbPosition, withThumbPosition, filterRecipes, newCategoryId, normalizeCategory, normalizePostUrl, normalizeRecipe, sanitizeCategories, validateCategories, validateImage, validateMemo } from './core.mjs';
 
 export function createController({ backend, view, ownerUid, ocr, now = () => new Date() }) {
   const state = {
@@ -100,7 +100,9 @@ export function createController({ backend, view, ownerUid, ocr, now = () => new
     const shared = state.shared;
     state.shared = null;
     view.applyShared(shared);
-    view.notify('共有された内容を入力しました。確認して保存してください。');
+    // 上限を超えて入れられなかった画像があれば、あわせて知らせる。
+    const dropped = shared.dropped > 0 ? `文字読み取り用の画像は${OCR_IMAGE_LIMIT}枚までのため、${shared.dropped}枚は入れていません。` : '';
+    view.notify(`共有された内容を入力しました。${dropped}確認して保存してください。`, !!dropped);
   }
 
   async function authAction(action) {
@@ -153,7 +155,7 @@ export function createController({ backend, view, ownerUid, ocr, now = () => new
 
   function hasNewChanges() {
     const input = view.readNew();
-    return !!(input.url || input.memo || input.category || input.file);
+    return !!(input.url || input.memo || input.category || input.file || input.ocrFiles?.length);
   }
   function hasEditChanges() {
     if (!state.edit) return false;
@@ -227,37 +229,59 @@ export function createController({ backend, view, ownerUid, ocr, now = () => new
   }
 
   // 画像から文字を読み取って、メモに追記する。'new' は新規投稿、'edit' は編集中の投稿。
+  // 新規投稿では slot で画像を選ぶ：'cover'（カバー画像1枚）か 'ocr'（文字読み取り用の一覧を上から順にすべて）。
   const ocrMessages = { prepare: '準備しています（初回は部品の読み込みに時間がかかります）…', read: '文字を読み取っています…' };
-  async function readText(which, picked = null) {
+  const sameFiles = (a, b) => a.length === b.length && a.every((file, index) => file === b[index]);
+  async function readText(which, picked = null, slot = 'cover') {
     if (state.ocrBusy) return;
     const token = session;
+    const fromList = which === 'new' && slot === 'ocr';
     try {
       if (!authorized()) throw new Error('ご本人のアカウントでログインしてください。');
       if (!ocr) throw new Error('文字の読み取りを利用できません。');
       const edit = state.edit;
-      let source;
+      let sources;
       // 別のスクショを選んだ場合は、その画像だけを読み取る（投稿の画像は変えない・保存もしない）。
-      if (picked) source = validateImage(picked);
+      if (picked) sources = [validateImage(picked)];
       else if (which === 'edit') {
         const recipe = state.recipes.find(item => item.id === edit?.id);
         // 新しく選んだ画像を優先し、なければ保存済みの画像（切り抜く前の元の画像）を使う。
-        source = view.readEdit().file || (recipe?.thumbnail_url ? originalImageUrl(recipe.thumbnail_url) : null);
-      } else source = view.readNew().file;
-      if (!source) throw new Error('先に画像を選んでください。');
+        sources = [view.readEdit().file || (recipe?.thumbnail_url ? originalImageUrl(recipe.thumbnail_url) : null)];
+      } else if (fromList) sources = [...(view.readNew().ocrFiles || [])];
+      else sources = [view.readNew().file];
+      sources = sources.filter(Boolean);
+      if (!sources.length) throw new Error('先に画像を選んでください。');
+      // 読み取り中に画像や編集対象が変わっていないか。変わっていたら結果は入れない。
+      const unchanged = () => which === 'edit' ? state.edit === edit
+        : fromList ? sameFiles(view.readNew().ocrFiles || [], sources)
+        : view.readNew().file === sources[0];
       state.ocrBusy = which;
-      view.setOcr(which, { busy: true, message: ocrMessages.prepare });
-      const text = cleanOcrText(await ocr.recognize(source, ({ stage, progress }) => {
+      const total = sources.length;
+      const texts = [];
+      const unreadable = [];
+      for (const [index, source] of sources.entries()) {
+        // 2枚以上のときは「2/3枚目：」のように何枚目かを添える。
+        const prefix = total > 1 ? `${index + 1}/${total}枚目：` : '';
+        view.setOcr(which, { busy: true, message: prefix + ocrMessages.prepare });
+        const text = cleanOcrText(await ocr.recognize(source, ({ stage, progress }) => {
+          if (!isCurrent(token)) return;
+          const percent = Math.round(Math.min(1, Math.max(0, progress)) * 100);
+          view.setOcr(which, { busy: true, message: prefix + (stage === 'read' ? `${ocrMessages.read} ${percent}%` : ocrMessages.prepare) });
+        }));
         if (!isCurrent(token)) return;
-        const percent = Math.round(Math.min(1, Math.max(0, progress)) * 100);
-        view.setOcr(which, { busy: true, message: stage === 'read' ? `${ocrMessages.read} ${percent}%` : ocrMessages.prepare });
-      }));
-      if (!isCurrent(token)) return;
-      // 読み取り中に画像や編集対象が変わったら、結果は入れない。
-      const unchanged = which === 'edit' ? state.edit === edit : view.readNew().file === source;
-      if (!unchanged) return;
-      if (!text) { view.notify('文字を読み取れませんでした。文字がはっきり写った画像でお試しください。', true); return; }
-      view.insertMemoText(which, text);
-      view.notify('メモに読み取った文字を入れました。誤りがないか確認してください。');
+        if (!unchanged()) {
+          if (fromList) view.notify('読み取り中に画像が変わったため、メモには入れませんでした。もう一度お試しください。', true);
+          return;
+        }
+        if (text) texts.push(text);
+        else unreadable.push(index + 1);
+      }
+      if (!texts.length) { view.notify('文字を読み取れませんでした。文字がはっきり写った画像でお試しください。', true); return; }
+      // 複数枚の文字は、空行で区切って順番どおりにメモへ入れる。
+      view.insertMemoText(which, texts.join('\n\n'));
+      if (!fromList) { view.notify('メモに読み取った文字を入れました。誤りがないか確認してください。'); return; }
+      const skipped = unreadable.length ? `${unreadable.join('・')}枚目は文字を読み取れませんでした。` : '';
+      view.notify(`${texts.length}枚分の文字をメモに入れました。${skipped}確認したら、読み取り用の画像は「すべて削除」で消せます（保存はされません）。`, !!skipped);
     } catch (error) { if (session === token) view.notify(message(error), true); }
     finally {
       state.ocrBusy = '';
@@ -354,7 +378,7 @@ export function createController({ backend, view, ownerUid, ocr, now = () => new
   const actions = {
     login: () => authAction(() => backend.login()),
     logout: () => { if (!hasUnsavedChanges() || view.confirmDiscard()) return authAction(() => backend.logout()); },
-    setShared(shared) { state.shared = shared && (shared.url || shared.memo || shared.category || shared.file) ? shared : null; },
+    setShared(shared) { state.shared = shared && (shared.url || shared.memo || shared.category || shared.file || shared.ocrFiles?.length) ? shared : null; },
     reload, saveNew, saveEdit, openEdit, openCrop, applyCrop, closeCrop: () => view.closeCrop(), readText, openCategories, closeCategories, saveCategories, closeEdit: () => closeEdit(), openDetail, closeDetail, hasUnsavedChanges,
     clearNew: () => { if (!state.savingNew && (!hasNewChanges() || view.confirmDiscard())) view.clearNew(); },
     search(value) { state.search = asText(value); render(); },

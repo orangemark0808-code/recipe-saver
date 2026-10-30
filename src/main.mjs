@@ -1,7 +1,7 @@
 import { ownerUid } from './config.mjs';
 import { createController } from './controller.mjs';
 import { createOcr } from './ocr.mjs';
-import { clearDraft, loadDraft, saveDraft, saveDraftImage } from './share.mjs';
+import { clearDraft, loadDraft, saveDraft, saveDraftImage, saveDraftOcrImages } from './share.mjs';
 import { createView } from './view.mjs';
 
 // 共有メニューから開かれたときは、保存されている下書きを読み出してアドレスの ?share を消す。
@@ -15,14 +15,23 @@ async function readSharedContent() {
 function watchDraft(view) {
   if (!('caches' in window)) return;
   let timer;
-  let savedFile = null;
+  // 下書きに保存済みの画像。変わったときだけ書き直す。
+  let savedCover = null;
+  let savedOcr = [];
+  const sameList = (a, b) => a.length === b.length && a.every((file, index) => file === b[index]);
   async function write() {
     clearTimeout(timer);
     const input = view.readNew();
     try {
-      if (!input.url && !input.memo && !input.category && !input.file) { savedFile = null; await clearDraft(caches, location.href); return; }
+      if (!input.url && !input.memo && !input.category && !input.file && !input.ocrFiles.length) {
+        savedCover = null;
+        savedOcr = [];
+        await clearDraft(caches, location.href);
+        return;
+      }
       await saveDraft(caches, location.href, input);
-      if (input.file !== savedFile) { savedFile = input.file; await saveDraftImage(caches, location.href, input.file); }
+      if (input.file !== savedCover) { savedCover = input.file; await saveDraftImage(caches, location.href, input.file); }
+      if (!sameList(input.ocrFiles, savedOcr)) { savedOcr = [...input.ocrFiles]; await saveDraftOcrImages(caches, location.href, input.ocrFiles); }
     } catch {}
   }
   view.onDraftChange(() => { clearTimeout(timer); timer = setTimeout(write, 300); });

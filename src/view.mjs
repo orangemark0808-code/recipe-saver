@@ -1,9 +1,10 @@
 import { makeIcon } from './icons.mjs';
-import { CENTER_POSITION, DEFAULT_CATEGORIES, FULL_CROP, canCropImage, categoryColor, categoryLabel, dragCropRect, labelColors, nextPaletteColor, parseThumbPosition, originalImageUrl, safePostUrl, safeImageUrl, validateImage } from './core.mjs';
+import { CENTER_POSITION, DEFAULT_CATEGORIES, FULL_CROP, OCR_IMAGE_LIMIT, canCropImage, categoryColor, categoryLabel, dragCropRect, labelColors, nextPaletteColor, parseThumbPosition, originalImageUrl, safePostUrl, safeImageUrl, validateImage } from './core.mjs';
 
 export function createView(document, { origin = location.origin, objectUrls = URL, confirmDelete = () => confirm('この投稿を削除しますか？'), confirmDiscard = () => confirm('保存していない変更があります。変更を破棄しますか？'), confirmCategoryRemoval = ({ names, posts }) => confirm(`「${names.join('」「')}」を削除します。${posts ? `この${posts}件の投稿は「その他」（なければ未分類）として表示されます。` : ''}よろしいですか？`) } = {}) {
   const get = id => document.getElementById(id);
   const cards = new Map();
+  // main：新規投稿のカバー画像（保存する）、modal：編集中の画像。文字読み取り用の画像は ocrItems で持つ。
   const previews = { main: null, modal: null };
   const files = { main: null, modal: null };
   let actions;
@@ -199,12 +200,14 @@ export function createView(document, { origin = location.origin, objectUrls = UR
   let draftListener = () => {};
   const touchDraft = () => draftListener();
   // 文字の読み取りの進み具合を表示する。which は 'new'（新規投稿）か 'edit'（編集中）。
-  const ocrIds = { new: [['readTextButton'], 'ocrStatus'], edit: [['modalReadTextButton', 'modalOcrPickButton'], 'modalOcrStatus'] };
+  const ocrIds = { new: [['readTextButton', 'ocrReadTextButton'], 'ocrStatus'], edit: [['modalReadTextButton', 'modalOcrPickButton'], 'modalOcrStatus'] };
   function setOcr(which, { busy, message = '' }) {
     const [buttonIds, statusId] = ocrIds[which];
     for (const buttonId of buttonIds) get(buttonId).disabled = !!busy;
     get(statusId).textContent = busy ? message : '';
     get(statusId).hidden = !busy;
+    // 読み取り中は、一覧の並べ替え・削除・追加を止める。
+    if (which === 'new' && ocrListBusy !== !!busy) { ocrListBusy = !!busy; renderOcrList(); }
   }
   // 読み取った文字をメモに追記する（すでにメモがあれば、空行をあけて続ける）。
   function insertMemoText(which, text) {
@@ -217,14 +220,106 @@ export function createView(document, { origin = location.origin, objectUrls = UR
     if (previews[which]) objectUrls.revokeObjectURL(previews[which]);
     previews[which] = null;
   }
+  // 新規投稿のカバー画像欄を、今の画像に合わせて表示し直す。
+  function renderCover() {
+    const has = !!files.main;
+    if (has) get('previewImg').src = previews.main;
+    else get('previewImg').removeAttribute('src');
+    get('imagePreview').hidden = !has;
+    get('uploadArea').hidden = has;
+    // 一覧の「カバーにする／カバーと入れ替え」の表示が変わるため。
+    renderOcrList();
+  }
   function clearImage() {
     releasePreview('main');
     files.main = null;
     get('imageInput').value = '';
-    get('previewImg').removeAttribute('src');
     setOcr('new', { busy: false });
-    get('imagePreview').hidden = true;
-    get('uploadArea').hidden = false;
+    renderCover();
+  }
+
+  // 文字読み取り用の画像の一覧（新規投稿のみ・保存しない）。上から順に読み取る。各要素は { file, url }。
+  let ocrItems = [];
+  let ocrListBusy = false;
+  function renderOcrList() {
+    const count = ocrItems.length;
+    get('ocrList').replaceChildren(...ocrItems.map((item, index) => {
+      const number = `${index + 1}枚目`;
+      const row = make('li', 'ocr-item');
+      const image = make('img');
+      image.src = item.url;
+      image.alt = `文字読み取り用の画像 ${number}`;
+      const buttons = make('div', 'ocr-item-buttons');
+      const button = (label, ariaLabel, disabled, onClick) => {
+        const element = make('button', '', label);
+        element.type = 'button';
+        element.setAttribute('aria-label', ariaLabel);
+        element.disabled = ocrListBusy || disabled;
+        element.addEventListener('click', onClick);
+        return element;
+      };
+      const coverLabel = files.main ? 'カバーと入れ替え' : 'カバーにする';
+      buttons.append(
+        button('↑', `${number}を上へ移動`, index === 0, () => moveOcr(index, -1)),
+        button('↓', `${number}を下へ移動`, index === count - 1, () => moveOcr(index, 1)),
+        button(coverLabel, `${number}を${coverLabel}`, false, () => makeCover(index)),
+        button('削除', `${number}を削除`, false, () => removeOcr(index))
+      );
+      const body = make('div', 'ocr-item-body');
+      body.append(make('span', 'ocr-item-label', number), buttons);
+      row.append(image, body);
+      return row;
+    }));
+    const room = OCR_IMAGE_LIMIT - count;
+    get('ocrUploadArea').hidden = room <= 0;
+    get('ocrUploadArea').disabled = ocrListBusy;
+    get('ocrUploadHint').textContent = count ? `あと${room}枚・複数枚まとめて選べます・10MB以下` : '複数枚まとめて選べます・10MB以下';
+    get('ocrActions').hidden = !count;
+    get('clearOcrImagesButton').disabled = ocrListBusy;
+  }
+  // 選んだ画像を一覧の末尾に追加する。上限を超えた分は追加せず知らせる。
+  function addOcrImages(list) {
+    const picked = [...(list || [])];
+    if (!picked.length) return;
+    let skipped = 0;
+    for (const file of picked) {
+      if (ocrItems.length >= OCR_IMAGE_LIMIT) { skipped++; continue; }
+      try { validateImage(file); } catch (error) { notify(error.message, true); continue; }
+      ocrItems.push({ file, url: objectUrls.createObjectURL(file) });
+    }
+    if (skipped) notify(`文字読み取り用の画像は${OCR_IMAGE_LIMIT}枚までです。${skipped}枚は追加しませんでした。`, true);
+    renderOcrList();
+    touchDraft();
+  }
+  function removeOcr(index) {
+    objectUrls.revokeObjectURL(ocrItems[index].url);
+    ocrItems.splice(index, 1);
+    renderOcrList();
+    touchDraft();
+  }
+  function moveOcr(index, step) {
+    const target = index + step;
+    if (target < 0 || target >= ocrItems.length) return;
+    [ocrItems[index], ocrItems[target]] = [ocrItems[target], ocrItems[index]];
+    renderOcrList();
+    touchDraft();
+  }
+  // 一覧の画像をカバーにする。カバーがあれば、そのカバーが一覧の同じ位置に入る。
+  function makeCover(index) {
+    const item = ocrItems[index];
+    if (files.main) ocrItems[index] = { file: files.main, url: previews.main };
+    else ocrItems.splice(index, 1);
+    files.main = item.file;
+    previews.main = item.url;
+    get('imageInput').value = '';
+    renderCover();
+    touchDraft();
+  }
+  function clearOcrImages() {
+    for (const item of ocrItems) objectUrls.revokeObjectURL(item.url);
+    ocrItems = [];
+    get('ocrImageInput').value = '';
+    renderOcrList();
   }
   function chooseImage(which, file) {
     if (!file) return;
@@ -233,9 +328,7 @@ export function createView(document, { origin = location.origin, objectUrls = UR
     files[which] = file;
     previews[which] = objectUrls.createObjectURL(file);
     if (which === 'main') {
-      get('previewImg').src = previews.main;
-      get('imagePreview').hidden = false;
-      get('uploadArea').hidden = true;
+      renderCover();
       touchDraft();
     } else {
       renderThumbnail(get('modalThumbnail'), previews.modal, '', true);
@@ -248,6 +341,7 @@ export function createView(document, { origin = location.origin, objectUrls = UR
   function resetNew() {
     get('newForm').reset();
     clearImage();
+    clearOcrImages();
   }
   // 保存後・クリアボタン。入力欄を空にし、下書きも空にする。
   function clearNew() {
@@ -436,11 +530,12 @@ export function createView(document, { origin = location.origin, objectUrls = UR
 
   function clearFilters() { get('searchInput').value = ''; get('categoryFilterSelect').value = ''; }
   // 共有メニューから届いたURL・画像を新規投稿フォームに入れる。保存は本人が押す。
-  function applyShared({ url, memo, category, file }) {
+  function applyShared({ url, memo, category, file, ocrFiles }) {
     if (url) get('postUrl').value = url;
     if (memo) get('memo').value = memo;
     if (category) get('category').value = category;
     if (file) chooseImage('main', file);
+    if (ocrFiles?.length) addOcrImages(ocrFiles);
   }
   function renderDetail(recipe) {
     if (detailRecipe === recipe) return;
@@ -560,6 +655,7 @@ export function createView(document, { origin = location.origin, objectUrls = UR
     listen(get('clearFormButton'), 'click', actions.clearNew);
     get('manageCategoriesButton').replaceChildren(makeIcon(document, 'gear'));
     listen(get('readTextButton'), 'click', () => act(() => actions.readText('new')));
+    listen(get('ocrReadTextButton'), 'click', () => act(() => actions.readText('new', null, 'ocr')));
     listen(get('modalReadTextButton'), 'click', () => act(() => actions.readText('edit')));
     // 別のスクショを選んで文字だけ読み取る。画像は保存せず、投稿のカバー画像は変えない。
     listen(get('modalOcrPickButton'), 'click', () => get('modalOcrInput').click());
@@ -569,7 +665,7 @@ export function createView(document, { origin = location.origin, objectUrls = UR
       if (file) act(() => actions.readText('edit', file));
     });
     // 編集画面の3つのボタンは、アイコンで見分けられるようにする。
-    for (const [id, icon] of [['modalCropButton', 'crop'], ['modalReadTextButton', 'scan'], ['modalOcrPickButton', 'imageAdd']]) get(id).prepend(makeIcon(document, icon));
+    for (const [id, icon] of [['ocrReadTextButton', 'scan'], ['modalCropButton', 'crop'], ['modalReadTextButton', 'scan'], ['modalOcrPickButton', 'imageAdd']]) get(id).prepend(makeIcon(document, icon));
     listen(get('modalCropButton'), 'click', () => act(actions.openCrop));
     const cropStage = get('cropStage');
     listen(cropStage, 'pointerdown', event => {
@@ -614,6 +710,7 @@ export function createView(document, { origin = location.origin, objectUrls = UR
     listen(get('categoryClose'), 'click', actions.closeCategories);
     listen(get('categoryModal'), 'cancel', event => { event.preventDefault(); actions.closeCategories(); });
     listen(get('clearImageButton'), 'click', () => { clearImage(); touchDraft(); });
+    listen(get('clearOcrImagesButton'), 'click', () => { clearOcrImages(); touchDraft(); });
     for (const [id, type] of [['postUrl', 'input'], ['memo', 'input'], ['category', 'change']]) listen(get(id), type, touchDraft);
     listen(get('searchInput'), 'input', event => actions.search(event.target.value));
     listen(get('categoryFilterSelect'), 'change', event => actions.filter(event.target.value));
@@ -630,17 +727,22 @@ export function createView(document, { origin = location.origin, objectUrls = UR
     });
     listen(get('editModal'), 'cancel', event => { event.preventDefault(); actions.closeEdit(); });
     listen(get('editModal'), 'click', event => { if (event.target === get('editModal')) actions.closeEdit(); });
-    for (const [which, areaId, inputId, fieldsetId] of [['main', 'uploadArea', 'imageInput', 'newFields'], ['modal', 'modalUploadArea', 'modalImageInput', 'modalFields']]) {
+    for (const [which, areaId, inputId, fieldsetId] of [['main', 'uploadArea', 'imageInput', 'newFields'], ['ocr', 'ocrUploadArea', 'ocrImageInput', 'newFields'], ['modal', 'modalUploadArea', 'modalImageInput', 'modalFields']]) {
       const area = get(areaId);
       const input = get(inputId);
       listen(area, 'click', () => input.click());
-      listen(input, 'change', () => chooseImage(which, input.files?.[0]));
+      // 文字読み取り用は複数枚まとめて追加する。それ以外は1枚。
+      const pick = list => which === 'ocr' ? addOcrImages(list) : chooseImage(which, list?.[0]);
+      listen(input, 'change', () => {
+        pick(input.files);
+        if (which === 'ocr') input.value = '';
+      });
       listen(area, 'dragover', event => { event.preventDefault(); if (!get(fieldsetId).disabled) area.classList.add('dragover'); });
       listen(area, 'dragleave', () => area.classList.remove('dragover'));
       listen(area, 'drop', event => {
         event.preventDefault();
         area.classList.remove('dragover');
-        if (!get(fieldsetId).disabled) chooseImage(which, event.dataTransfer?.files?.[0]);
+        if (!get(fieldsetId).disabled && !area.disabled) pick(event.dataTransfer?.files);
       });
     }
   }
@@ -663,7 +765,7 @@ export function createView(document, { origin = location.origin, objectUrls = UR
 
   return {
     bind, setAuth, setBusy, renderList, notify, clearNew, clearFilters, applyShared, openCrop, closeCrop, setEditThumbnail, setOcr, insertMemoText, setCategories, openCategories, closeCategories, categoriesChanged, readCategories: categoryDraft, confirmCategoryRemoval, onDraftChange: listener => { draftListener = listener; }, openEdit, closeEdit, openDetail, closeDetail, renderDetail, reset, destroy, confirmDelete, confirmDiscard,
-    readNew: () => ({ url: get('postUrl').value, memo: get('memo').value, category: get('category').value, file: files.main }),
+    readNew: () => ({ url: get('postUrl').value, memo: get('memo').value, category: get('category').value, file: files.main, ocrFiles: ocrItems.map(item => item.file) }),
     readEdit: () => ({ url: get('modalPostUrl').value, memo: get('modalMemo').value, category: get('modalCategory').value, file: files.modal })
   };
 }

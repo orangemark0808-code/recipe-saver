@@ -15,6 +15,8 @@ export const CATEGORY_PALETTE = Object.freeze(['#f5a3a3', '#f4b860', '#9fd3a0', 
 const COLOR_PATTERN = /^#[0-9a-f]{6}$/i;
 const DARK_TEXT = '#3a2a1a';
 export const CATEGORY_LIMITS = Object.freeze({ maxItems: 30, maxLabel: 20 });
+// 新規投稿で登録できる、文字読み取り用の画像の上限（保存はしない画像）。
+export const OCR_IMAGE_LIMIT = 5;
 const CATEGORY_ID = /^[a-z0-9_]{1,24}$/;
 
 const LEGACY_CATEGORIES = Object.freeze({ dessert: 'snack', ai: 'it', salad: 'other', bread: 'other', drink: 'other' });
