@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DRAFT_MAX_AGE_MS, clearDraft, extractSharedUrl, handleShareRequest, loadDraft, saveDraft, saveDraftImage } from '../src/share.mjs';
+import { DRAFT_MAX_AGE_MS, clearDraft, extractSharedUrl, handleShareRequest, loadDraft, saveDraft, saveDraftImage, saveDraftOcrImages } from '../src/share.mjs';
 
 const base = 'https://example.github.io/recipe-saver/';
 const T0 = 1_000_000_000_000;
@@ -66,11 +66,60 @@ test('スクショを共有→URLを共有でも合体し、新しい内容が�
   let draft = await loadDraft(caches, base, T0 + 2000);
   assert.equal(draft.url, 'https://www.instagram.com/p/LATER/');
   assert.deepEqual(await bytesOf(draft.file), [1]);
-  // 同じ種類をもう一度共有したら、新しい方に置き換わる。
+  // URLをもう一度共有したら新しい方に置き換わる。2枚目の画像はカバーを上書きせず、文字読み取り用に入る。
   await handleShareRequest(shareRequest({ image: png('b.png', [2, 2]), text: 'https://www.instagram.com/p/NEWER/' }), caches, base, T0 + 3000);
   draft = await loadDraft(caches, base, T0 + 4000);
   assert.equal(draft.url, 'https://www.instagram.com/p/NEWER/');
-  assert.deepEqual(await bytesOf(draft.file), [2, 2]);
+  assert.deepEqual(await bytesOf(draft.file), [1]);
+  assert.equal(draft.ocrFiles.length, 1);
+  assert.deepEqual(await bytesOf(draft.ocrFiles[0]), [2, 2]);
+});
+
+test('2枚目以降の画像は文字読み取り用の一覧に順番に追加し、5枚を超えた分は入れずに枚数を残す', async () => {
+  const caches = fakeCaches();
+  await handleShareRequest(shareRequest({ image: png('cover.png', [0]) }), caches, base, T0);
+  let draft = await loadDraft(caches, base, T0 + 1);
+  assert.deepEqual(await bytesOf(draft.file), [0]);
+  assert.deepEqual(draft.ocrFiles, []);
+  assert.equal(draft.dropped, 0);
+  for (let i = 1; i <= 7; i++) await handleShareRequest(shareRequest({ image: png(`text${i}.png`, [i]) }), caches, base, T0 + i * 1000);
+  draft = await loadDraft(caches, base, T0 + 9000);
+  assert.deepEqual(await bytesOf(draft.file), [0]);
+  assert.deepEqual(draft.ocrFiles.map(file => file.name), ['text1.png', 'text2.png', 'text3.png', 'text4.png', 'text5.png']);
+  assert.equal(draft.dropped, 2);
+  // ページ側が入力内容を保存したら、お知らせ済みの枚数は消える。
+  await saveDraft(caches, base, draft, T0 + 10_000);
+  assert.equal((await loadDraft(caches, base, T0 + 11_000)).dropped, 0);
+});
+
+test('一度の共有で複数枚届いたら、カバー→文字読み取り用の順に入れる', async () => {
+  const caches = fakeCaches();
+  const form = new FormData();
+  for (const [name, bytes] of [['a.png', [1]], ['b.png', [2]], ['c.png', [3]]]) form.append('image', png(name, bytes));
+  await handleShareRequest(new Request(`${base}share-target`, { method: 'POST', body: form }), caches, base, T0);
+  const draft = await loadDraft(caches, base, T0 + 1);
+  assert.equal(draft.file.name, 'a.png');
+  assert.deepEqual(draft.ocrFiles.map(file => file.name), ['b.png', 'c.png']);
+});
+
+test('ページ側で文字読み取り用の画像の一覧を保存・並べ替え・削除でき、クリアですべて消える', async () => {
+  const caches = fakeCaches();
+  await saveDraft(caches, base, { memo: 'メモ' }, T0);
+  await saveDraftImage(caches, base, png('c.png', [1]));
+  await saveDraftOcrImages(caches, base, [png('o1.png', [7]), png('o2.png', [8]), png('o3.png', [9])]);
+  let draft = await loadDraft(caches, base, T0 + 1);
+  assert.deepEqual(await bytesOf(draft.file), [1]);
+  assert.deepEqual(draft.ocrFiles.map(file => file.name), ['o1.png', 'o2.png', 'o3.png']);
+  // 並べ替え・1枚削除。余った置き場は空になり、カバーは残る。
+  await saveDraftOcrImages(caches, base, [draft.ocrFiles[2], draft.ocrFiles[0]]);
+  draft = await loadDraft(caches, base, T0 + 1);
+  assert.deepEqual(draft.ocrFiles.map(file => file.name), ['o3.png', 'o1.png']);
+  assert.deepEqual(await bytesOf(draft.file), [1]);
+  await saveDraftOcrImages(caches, base, []);
+  assert.deepEqual((await loadDraft(caches, base, T0 + 1)).ocrFiles, []);
+  await saveDraftOcrImages(caches, base, [png('o4.png', [4])]);
+  await clearDraft(caches, base);
+  assert.equal(caches.store.size, 0);
 });
 
 test('10分以上たった下書きは合体せず、読み出しでも消える', async () => {

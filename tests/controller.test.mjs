@@ -9,7 +9,7 @@ const makeRecipe = (id, category = 'main') => normalizeRecipe(id, { memo: `${id}
 
 function harness(overrides = {}) {
   let authCallback;
-  const calls = { list: 0, create: [], update: [], remove: [], upload: 0, categories: [], categoriesData: null };
+  const calls = { list: 0, create: [], update: [], remove: [], upload: 0, categories: [], categoriesData: null, ocr: [], ocrText: '材 料 ： 米 粉\n|\n作 り 方' };
   const screen = { notices: [], lists: [], closed: 0, cleared: 0, newInput: { url: 'https://www.instagram.com/p/example/', memo: '新しいメモ', category: 'snack', file: null }, editInput: { url: 'https://www.instagram.com/p/example/', memo: '更新メモ', category: 'main', file: null }, categoryRows: [], allowRemoval: true };
   const backend = {
     watchAuth(callback) { authCallback = callback; return () => {}; },
@@ -39,12 +39,20 @@ function harness(overrides = {}) {
     readCategories() { return screen.categoryRows; },
     categoriesChanged() { return !!screen.categoriesChanged; },
     confirmCategoryRemoval(info) { screen.removalAsked = info; return screen.allowRemoval; },
+    openCrop(info) { screen.crop = info; }, closeCrop() { screen.cropClosed = (screen.cropClosed || 0) + 1; },
+    setEditThumbnail(url) { screen.editThumbnail = url; },
+    setOcr(which, info) { (screen.ocrStates ??= []).push({ which, ...info }); },
+    insertMemoText(which, text) { screen.inserted = { which, text }; },
     confirmDelete() { return true; },
     confirmDiscard() { screen.discardAsked = (screen.discardAsked || 0) + 1; return screen.allowDiscard ?? true; },
     applyShared(shared) { screen.shared = shared; },
     readNew() { return screen.newInput; }, readEdit() { return screen.editInput; }
   };
-  const controller = createController({ backend, view, ownerUid: 'owner', now: () => new Date('2026-10-28T00:00:00Z') });
+  const ocr = overrides.ocr ?? {
+    async recognize(source, onProgress) { calls.ocr.push(source); onProgress({ stage: 'prepare', progress: 0.2 }); onProgress({ stage: 'read', progress: 0.5 }); return calls.ocrText; }
+  };
+  delete overrides.ocr;
+  const controller = createController({ backend, view, ownerUid: 'owner', ocr, now: () => new Date('2026-10-28T00:00:00Z') });
   controller.start();
   return { controller, backend, calls, screen, async auth(uid) { authCallback(uid ? { uid } : null); await tick(); }, async ready() { await this.auth('owner'); } };
 }
@@ -406,4 +414,244 @@ test('カテゴリが重複・空・保存失敗のときは保存せず理由�
   assert.equal(failing.screen.notices.at(-1).error, true);
   assert.equal(failing.screen.categoryClosed, undefined);
   assert.equal(failing.screen.categories.length, 8);
+});
+
+test('新規投稿：画像から読み取った文字を整えてメモに入れる。画像がなければ読み取らない', async () => {
+  const t = harness();
+  await t.ready();
+  await t.controller.readText('new');
+  assert.match(t.screen.notices.at(-1).message, /先に画像/);
+  assert.equal(t.calls.ocr.length, 0);
+  const file = { type: 'image/png', size: 10 };
+  t.screen.newInput.file = file;
+  await t.controller.readText('new');
+  assert.equal(t.calls.ocr[0], file);
+  assert.deepEqual(t.screen.inserted, { which: 'new', text: '材料：米粉\n作り方' });
+  assert.match(t.screen.notices.at(-1).message, /読み取った文字/);
+  assert.equal(t.screen.ocrStates.at(-1).busy, false);
+  assert.ok(t.screen.ocrStates.some(state => state.busy && /読み取っています/.test(state.message)));
+});
+
+test('読み取り中の二重実行を防ぎ、結果が空・失敗のときは入れずに理由を出す', async () => {
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  const t = harness({ ocr: { async recognize() { await gate; return '|'; } } });
+  await t.ready();
+  t.screen.newInput.file = { type: 'image/png', size: 10 };
+  const first = t.controller.readText('new');
+  await t.controller.readText('new');
+  release();
+  await first;
+  assert.equal(t.screen.inserted, undefined);
+  assert.match(t.screen.notices.at(-1).message, /読み取れませんでした/);
+  const failing = harness({ ocr: { async recognize() { throw new Error('文字認識の部品を読み込めませんでした。'); } } });
+  await failing.ready();
+  failing.screen.newInput.file = { type: 'image/png', size: 10 };
+  await failing.controller.readText('new');
+  assert.equal(failing.screen.notices.at(-1).error, true);
+  assert.equal(failing.screen.ocrStates.at(-1).busy, false);
+});
+
+test('編集：新しく選んだ画像を優先し、なければ保存済みの元の画像を読み取る', async () => {
+  const cropped = 'https://res.cloudinary.com/demo/image/upload/c_crop,w_1.0,h_0.84,y_0.08/v1/shot.png';
+  const t = harness({ async list() { return [normalizeRecipe('A', { memo: 'a', post_url: 'https://www.instagram.com/p/a/', thumbnail_url: cropped })]; } });
+  await t.ready();
+  t.controller.openEdit('A');
+  await t.controller.readText('edit');
+  assert.equal(t.calls.ocr[0], 'https://res.cloudinary.com/demo/image/upload/v1/shot.png');
+  assert.equal(t.screen.inserted.which, 'edit');
+  const file = { type: 'image/png', size: 10 };
+  t.screen.editInput.file = file;
+  await t.controller.readText('edit');
+  assert.equal(t.calls.ocr[1], file);
+});
+
+test('読み取り中にログアウトしたり画像を変えたら、結果はメモに入れない', async () => {
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  const t = harness({ ocr: { async recognize() { await gate; return '材料 米粉'; } } });
+  await t.ready();
+  t.screen.newInput.file = { type: 'image/png', size: 10 };
+  const run = t.controller.readText('new');
+  t.screen.newInput.file = { type: 'image/png', size: 20 };
+  release();
+  await run;
+  assert.equal(t.screen.inserted, undefined);
+  let release2;
+  const gate2 = new Promise(resolve => { release2 = resolve; });
+  const u = harness({ ocr: { async recognize() { await gate2; return '材料 米粉'; } } });
+  await u.ready();
+  u.screen.newInput.file = { type: 'image/png', size: 10 };
+  const run2 = u.controller.readText('new');
+  await u.auth(null);
+  release2();
+  await run2;
+  assert.equal(u.screen.inserted, undefined);
+});
+
+test('編集：別のスクショを選んで文字だけ読み取る。カバー画像は変えず、画像は保存しない', async () => {
+  const cover = 'https://res.cloudinary.com/demo/image/upload/v1/cover.png';
+  const t = harness({ async list() { return [normalizeRecipe('A', { memo: 'もとのメモ', post_url: 'https://www.instagram.com/p/a/', thumbnail_url: cover })]; } });
+  await t.ready();
+  t.controller.openEdit('A');
+  const screenshot = { type: 'image/png', size: 10 };
+  await t.controller.readText('edit', screenshot);
+  assert.equal(t.calls.ocr[0], screenshot);
+  assert.deepEqual(t.screen.inserted, { which: 'edit', text: '材料：米粉\n作り方' });
+  assert.equal(t.calls.upload, 0);
+  assert.equal(t.calls.update.length, 0);
+  assert.equal(t.screen.editInput.file, null);
+  // 画像の種類が違うファイルは読み取らず、理由を出す。
+  await t.controller.readText('edit', { type: 'application/pdf', size: 10 });
+  assert.equal(t.calls.ocr.length, 1);
+  assert.equal(t.screen.notices.at(-1).error, true);
+});
+
+test('トリミング：範囲を決めて適用し、編集の「保存」で切り抜き指定つきのURLに差し替える。画像は上げ直さない', async () => {
+  const original = 'https://res.cloudinary.com/demo/image/upload/v1/cover.png';
+  const auto = 'https://res.cloudinary.com/demo/image/upload/c_crop,w_1.0,h_0.84,y_0.08/v1/cover.png';
+  const t = harness({ async list() { return [normalizeRecipe('A', { memo: 'a', post_url: 'https://www.instagram.com/p/a/', thumbnail_url: auto })]; } });
+  await t.ready();
+  t.controller.openEdit('A');
+  t.controller.openCrop();
+  // 元の画像を表示し、今の切り抜き（自動トリミング）を初期の範囲にする。
+  assert.equal(t.screen.crop.url, original);
+  assert.deepEqual(t.screen.crop.rect, { x: 0, y: 0.08, w: 1, h: 0.84 });
+  t.controller.applyCrop({ x: 0.1, y: 0.2, w: 0.5, h: 0.4 });
+  const cropped = 'https://res.cloudinary.com/demo/image/upload/c_crop,x_0.1000,y_0.2000,w_0.5000,h_0.4000/v1/cover.png';
+  assert.equal(t.screen.editThumbnail, cropped);
+  assert.equal(t.screen.cropClosed, 1);
+  assert.equal(t.calls.update.length, 0);
+  await t.controller.saveEdit();
+  assert.equal(t.calls.update[0].data.thumbnail_url, cropped);
+  assert.equal(t.calls.upload, 0);
+  assert.equal(t.screen.list.recipes.find(item => item.id === 'A').thumbnail_url, cropped);
+});
+
+test('トリミング：全体に戻すと元の画像のURLになる。変えていなければ画像は更新しない。画像がなければ開かない', async () => {
+  const original = 'https://res.cloudinary.com/demo/image/upload/v1/cover.png';
+  const auto = 'https://res.cloudinary.com/demo/image/upload/c_crop,w_1.0,h_0.84,y_0.08/v1/cover.png';
+  const t = harness({ async list() { return [normalizeRecipe('A', { memo: 'a', post_url: 'https://www.instagram.com/p/a/', thumbnail_url: auto }), normalizeRecipe('B', { memo: 'b', post_url: 'https://www.instagram.com/p/b/' })]; } });
+  await t.ready();
+  t.controller.openEdit('A');
+  t.controller.openCrop();
+  t.controller.applyCrop({ x: 0, y: 0, w: 1, h: 1 });
+  assert.equal(t.screen.editThumbnail, original);
+  await t.controller.saveEdit();
+  assert.equal(t.calls.update[0].data.thumbnail_url, original);
+  // トリミングを開いただけ・メモだけ変更なら、画像のURLは更新しない。
+  t.controller.openEdit('A');
+  t.controller.openCrop();
+  t.screen.editInput.memo = 'メモだけ';
+  await t.controller.saveEdit();
+  assert.equal(Object.hasOwn(t.calls.update[1].data, 'thumbnail_url'), false);
+  // 画像のない投稿ではトリミングを開かない。
+  t.screen.crop = undefined;
+  t.controller.openEdit('B');
+  t.controller.openCrop();
+  assert.equal(t.screen.crop, undefined);
+  assert.equal(t.screen.notices.at(-1).error, true);
+});
+
+test('一覧の表示位置：トリミング画面で決めた位置を、画像のURLの末尾に付けて保存し、開き直すと復元する', async () => {
+  const original = 'https://res.cloudinary.com/demo/image/upload/v1/cover.png';
+  const t = harness({ async list() { return [normalizeRecipe('A', { memo: 'a', post_url: 'https://www.instagram.com/p/a/', thumbnail_url: original })]; } });
+  await t.ready();
+  t.controller.openEdit('A');
+  t.controller.openCrop();
+  assert.deepEqual(t.screen.crop.focus, { x: 0.5, y: 0.5 });
+  // 範囲は変えず、表示位置だけ変える。
+  t.controller.applyCrop({ x: 0, y: 0, w: 1, h: 1 }, { x: 0.5, y: 0.2 });
+  assert.equal(t.screen.editThumbnail, original + '#pos=0.500,0.200');
+  await t.controller.saveEdit();
+  assert.equal(t.calls.update[0].data.thumbnail_url, original + '#pos=0.500,0.200');
+  assert.equal(t.calls.upload, 0);
+  // 開き直すと、保存した位置から始まる。切り抜きと位置を一緒に変えても、1つのURLにまとまる。
+  t.controller.openEdit('A');
+  t.controller.openCrop();
+  assert.deepEqual(t.screen.crop.focus, { x: 0.5, y: 0.2 });
+  assert.equal(t.screen.crop.url, original);
+  t.controller.applyCrop({ x: 0.1, y: 0.2, w: 0.5, h: 0.4 }, { x: 0.3, y: 0.5 });
+  assert.equal(t.screen.editThumbnail, 'https://res.cloudinary.com/demo/image/upload/c_crop,x_0.1000,y_0.2000,w_0.5000,h_0.4000/v1/cover.png#pos=0.300,0.500');
+  // 位置を中央に戻せば目印は付かない。
+  t.controller.applyCrop({ x: 0, y: 0, w: 1, h: 1 }, { x: 0.5, y: 0.5 });
+  assert.equal(t.screen.editThumbnail, original);
+});
+
+test('新規投稿：文字読み取り用の画像を上から順にすべて読み取り、空行で区切ってメモに入れる。保存はカバーだけ', async () => {
+  const texts = ['材 料 ： 米 粉', '作 り 方'];
+  const t = harness({ ocr: { async recognize(source, onProgress) { t.calls.ocr.push(source); onProgress({ stage: 'read', progress: 0.5 }); return texts.shift(); } } });
+  await t.ready();
+  const cover = { type: 'image/png', size: 10 };
+  const shots = [{ type: 'image/png', size: 20 }, { type: 'image/png', size: 30 }];
+  t.screen.newInput.file = cover;
+  t.screen.newInput.ocrFiles = shots;
+  await t.controller.readText('new', null, 'ocr');
+  assert.deepEqual(t.calls.ocr, shots);
+  assert.deepEqual(t.screen.inserted, { which: 'new', text: '材料：米粉\n\n作り方' });
+  assert.ok(t.screen.ocrStates.some(state => state.busy && /^2\/2枚目：文字を読み取っています… 50%/.test(state.message)));
+  assert.match(t.screen.notices.at(-1).message, /2枚分の文字をメモに入れました。.*「すべて削除」/);
+  assert.equal(t.screen.notices.at(-1).error, false);
+  await t.controller.saveNew();
+  // アップロードは1回（カバーのみ）。
+  assert.equal(t.calls.upload, 1);
+  assert.equal(t.calls.create[0].thumbnail_url, 'https://res.cloudinary.com/demo/image/upload/new.jpg');
+});
+
+test('新規投稿：読み取れなかった画像は飛ばし、何枚目かを知らせる', async () => {
+  const texts = ['材料 米粉', '|', '作り方'];
+  const t = harness({ ocr: { async recognize() { return texts.shift(); } } });
+  await t.ready();
+  t.screen.newInput.ocrFiles = [1, 2, 3].map(size => ({ type: 'image/png', size }));
+  await t.controller.readText('new', null, 'ocr');
+  assert.equal(t.screen.inserted.text, '材料米粉\n\n作り方');
+  assert.match(t.screen.notices.at(-1).message, /2枚分.*2枚目は文字を読み取れませんでした/);
+  assert.equal(t.screen.notices.at(-1).error, true);
+});
+
+test('新規投稿：文字読み取り用の画像だけでは保存できず、未保存の変更として扱う', async () => {
+  const t = harness();
+  await t.ready();
+  t.screen.newInput = { url: '', memo: '', category: '', file: null, ocrFiles: [{ type: 'image/png', size: 10 }] };
+  assert.equal(t.controller.hasUnsavedChanges(), true);
+  t.screen.newInput.ocrFiles = [];
+  assert.equal(t.controller.hasUnsavedChanges(), false);
+  t.screen.newInput.ocrFiles = [{ type: 'image/png', size: 10 }];
+  await t.controller.saveNew();
+  assert.equal(t.calls.upload, 0);
+  assert.equal(t.calls.create.length, 0);
+  assert.match(t.screen.notices.at(-1).message, /投稿URLまたは画像/);
+  t.screen.newInput.ocrFiles = [];
+  await t.controller.readText('new', null, 'ocr');
+  assert.match(t.screen.notices.at(-1).message, /先に画像/);
+});
+
+test('新規投稿：読み取り中に一覧が変わったら中止し、メモには何も入れない', async () => {
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  const t = harness({ ocr: { async recognize() { await gate; return '材料 米粉'; } } });
+  await t.ready();
+  const shots = [{ type: 'image/png', size: 10 }, { type: 'image/png', size: 20 }];
+  t.screen.newInput.ocrFiles = [...shots];
+  const run = t.controller.readText('new', null, 'ocr');
+  t.screen.newInput.ocrFiles = [shots[1]];
+  release();
+  await run;
+  assert.equal(t.screen.inserted, undefined);
+  assert.match(t.screen.notices.at(-1).message, /画像が変わった/);
+  assert.equal(t.screen.ocrStates.at(-1).busy, false);
+});
+
+test('共有で文字読み取り用の画像だけが届いてもフォームに入れ、上限を超えた枚数を知らせる', async () => {
+  const t = harness();
+  const ocrFiles = [{ type: 'image/png', size: 10 }];
+  t.controller.setShared({ url: '', memo: '', category: '', file: null, ocrFiles, dropped: 2 });
+  await t.ready();
+  assert.equal(t.screen.shared.ocrFiles, ocrFiles);
+  assert.match(t.screen.notices.at(-1).message, /5枚までのため、2枚は入れていません/);
+  t.controller.setShared({ url: '', memo: '', category: '', file: null, ocrFiles: [] });
+  t.screen.shared = null;
+  await t.auth(null);
+  await t.ready();
+  assert.equal(t.screen.shared, null);
 });
