@@ -655,3 +655,18 @@ test('共有で文字読み取り用の画像だけが届いてもフォーム�
   await t.ready();
   assert.equal(t.screen.shared, null);
 });
+
+test('ログイン処理が終わらなくても、ログイン状態が変われば別アカウントからログアウトできる', async () => {
+  // iPadのホーム画面アプリで、ログイン画面が閉じた知らせが届かない場合を再現する。
+  let logouts = 0;
+  const t = harness({ login: () => new Promise(() => {}), async logout() { logouts++; } });
+  await t.auth(null);
+  void t.controller.login();
+  await tick();
+  assert.equal(t.screen.busy.authBusy, true);
+  await t.auth('someone-else');
+  assert.equal(t.screen.auth, 'denied');
+  assert.equal(t.screen.busy.authBusy, false);
+  await t.controller.logout();
+  assert.equal(logouts, 1);
+});
