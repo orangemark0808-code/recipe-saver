@@ -31,18 +31,31 @@
               <input type="url" id="postUrl" maxlength="2048" placeholder="https://instagram.com/p/ABC123...">
             </div>
             <div class="input-group">
-              <label for="imageInput">スクリーンショット画像（任意）</label>
+              <label for="imageInput">カバー画像（任意・保存されます）</label>
               <button type="button" id="uploadArea" class="upload-area">
                 <span>画像を選ぶ</span>
                 <span class="upload-hint">ドラッグ＆ドロップも可・10MB以下</span>
               </button>
               <input type="file" id="imageInput" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
-              <div id="imagePreview" hidden>
-                <img id="previewImg" alt="選択した画像のプレビュー">
+              <div id="imagePreview" class="image-preview" hidden>
+                <img id="previewImg" alt="カバー画像のプレビュー">
                 <button id="clearImageButton" type="button">画像を取り消す</button>
                 <button id="readTextButton" type="button" class="read-text-button">画像から文字を読み取る</button>
-                <p id="ocrStatus" class="ocr-status" role="status" hidden></p>
               </div>
+            </div>
+            <div class="input-group">
+              <label for="ocrImageInput">文字読み取り用の画像（任意・保存されません・5枚まで）</label>
+              <ol id="ocrList" class="ocr-list" aria-label="文字読み取り用の画像（上から順に読み取ります）"></ol>
+              <button type="button" id="ocrUploadArea" class="upload-area">
+                <span>画像を追加</span>
+                <span id="ocrUploadHint" class="upload-hint">複数枚まとめて選べます・10MB以下</span>
+              </button>
+              <input type="file" id="ocrImageInput" accept="image/jpeg,image/png,image/webp,image/gif" multiple hidden>
+              <div id="ocrActions" class="ocr-actions" hidden>
+                <button id="ocrReadTextButton" type="button" class="read-text-button">まとめて読み取ってメモに入れる</button>
+                <button id="clearOcrImagesButton" type="button">すべて削除</button>
+              </div>
+              <p id="ocrStatus" class="ocr-status" role="status" hidden></p>
             </div>
             <div class="input-group">
               <label for="category">カテゴリ</label>

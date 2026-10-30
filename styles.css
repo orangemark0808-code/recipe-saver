@@ -37,9 +37,9 @@ textarea { min-height: 88px; resize: vertical; }
 .upload-area span, .modal-upload-area span { display: block; }
 .upload-hint { color: var(--muted); font-size: 11px; font-weight: 400; margin-top: 2px; }
 .dragover { background: var(--accent-light); border-color: var(--accent); }
-#imagePreview { display: flex; align-items: center; gap: 12px; }
-#previewImg { max-width: 50%; max-height: 140px; object-fit: contain; border-radius: 6px; }
-#clearImageButton { font-size: 12px; }
+.image-preview { display: flex; align-items: center; gap: 12px; }
+.image-preview img { max-width: 50%; max-height: 140px; object-fit: contain; border-radius: 6px; }
+#clearImageButton, #clearOcrImagesButton { font-size: 12px; }
 .button-group { display: flex; gap: 8px; }
 #saveNewButton { flex: 1; }
 #clearFormButton { background: transparent; }
@@ -158,8 +158,19 @@ dialog.modal::backdrop { background: rgba(58,42,26,.45); }
 /* 画像から文字を読み取る */
 .read-text-button { width: 100%; margin-top: 8px; border-color: var(--accent); color: var(--accent-dark); font-size: 13px; }
 .ocr-status { margin-top: 6px; color: var(--accent-dark); font-size: 12px; line-height: 1.6; }
-#imagePreview { flex-wrap: wrap; }
-#imagePreview .read-text-button, #imagePreview .ocr-status { flex: 1 0 100%; margin-top: 0; }
+.image-preview { flex-wrap: wrap; }
+.image-preview .read-text-button { flex: 1 0 100%; margin-top: 0; }
+/* 文字読み取り用の画像の一覧（上から順に読み取る） */
+.ocr-list { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 8px; }
+.ocr-list:empty { display: none; }
+.ocr-item { display: flex; align-items: center; gap: 10px; padding: 6px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface2); }
+.ocr-item img { width: 56px; height: 72px; object-fit: contain; border-radius: 4px; background: var(--surface); flex: none; }
+.ocr-item-body { flex: 1; min-width: 0; display: grid; gap: 6px; }
+.ocr-item-label { font-size: 12px; font-weight: 700; color: var(--muted); }
+.ocr-item-buttons { display: flex; flex-wrap: wrap; gap: 6px; }
+.ocr-item-buttons button { padding: 4px 10px; font-size: 12px; }
+.ocr-actions { display: flex; gap: 8px; margin-top: 8px; }
+.ocr-actions .read-text-button { flex: 1; margin-top: 0; }
 
 /* 画像のトリミング画面 */
 .crop-stage { position: relative; margin: 0 auto 4px; overflow: hidden; border-radius: 8px; background: var(--surface2); touch-action: none; user-select: none; -webkit-user-select: none; }
