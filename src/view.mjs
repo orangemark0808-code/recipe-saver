@@ -18,10 +18,13 @@ export function createView(document, { origin = location.origin, objectUrls = UR
   let cropMode = 'crop';
   let cropDrag = null;
   let cropTrigger;
-  // トリミング画面をどこから開いたか。'edit'（編集画面）か 'new'（新規登録のカバー画像）。
+  // トリミング画面をどこから開いたか。'edit'（編集画面の保存済み画像）、'new'（新規登録のカバー画像）、
+  // 'editNew'（編集画面で新しく選んだ、まだ保存前の画像）。
   let cropTarget = 'edit';
   // 新規登録のカバー画像で決めた範囲と表示位置。保存時にアップロードした画像のURLへ反映する。
   let newCrop = null;
+  // 編集画面で新しく選んだ画像で決めた範囲と表示位置。保存時にアップロードした画像のURLへ反映する。
+  let modalCrop = null;
   let categoryRows = [];
   let categorySnapshot = '';
   let categoryTrigger;
@@ -341,8 +344,10 @@ export function createView(document, { origin = location.origin, objectUrls = UR
     } else {
       renderThumbnail(get('modalThumbnail'), previews.modal, '', true);
       get('modalReadTextButton').hidden = false;
-      // 新しく選んだ画像はまだ保存先にないので、トリミングは保存済みの画像だけに使う。
-      get('modalCropButton').hidden = true;
+      // 新しく選んだ画像でも、保存前に範囲と表示位置を決められる。画像を選び直したら前の設定は使わない。
+      modalCrop = null;
+      renderModalCropButton();
+      get('modalCropButton').hidden = false;
     }
   }
   // ログアウトや再読み込みなどの初期化。下書きには触れない。
@@ -456,6 +461,24 @@ export function createView(document, { origin = location.origin, objectUrls = UR
   function applyNewCrop(rect, focus) {
     newCrop = { url: previews.main, rect, focus };
     renderCover();
+    closeCrop();
+    notify('表示位置を設定しました。保存すると反映されます。');
+  }
+  // 編集画面のトリミングボタンの文字。新しい画像で範囲を決めたら「設定済み」と出す。
+  function renderModalCropButton() {
+    const button = get('modalCropButton');
+    button.textContent = modalCrop ? '画像をトリミング（設定済み）' : '画像をトリミング';
+    button.prepend(makeIcon(document, 'crop'));
+  }
+  // 編集画面のトリミングボタン。新しい画像を選んでいればその画像で、なければ保存済みの画像で開く。
+  function openModalCrop() {
+    if (!files.modal || !previews.modal) { act(actions.openCrop); return; }
+    const saved = modalCrop?.url === previews.modal ? modalCrop : null;
+    openCrop({ url: previews.modal, rect: saved?.rect ?? { ...FULL_CROP }, focus: saved?.focus ?? { ...CENTER_POSITION } }, 'editNew');
+  }
+  function applyModalCrop(rect, focus) {
+    modalCrop = { url: previews.modal, rect, focus };
+    renderModalCropButton();
     closeCrop();
     notify('表示位置を設定しました。保存すると反映されます。');
   }
@@ -606,6 +629,8 @@ export function createView(document, { origin = location.origin, objectUrls = UR
     get('modalImageInput').value = '';
     get('modalMemo').value = '';
     get('modalReadTextButton').hidden = true;
+    modalCrop = null;
+    renderModalCropButton();
     get('modalCropButton').hidden = true;
     setOcr('edit', { busy: false });
     get('modalPostUrl').value = '';
@@ -624,6 +649,8 @@ export function createView(document, { origin = location.origin, objectUrls = UR
     get('modalMemo').value = recipe.memo;
     get('modalPostUrl').value = recipe.post_url;
     get('modalReadTextButton').hidden = !recipe.thumbnail_url;
+    modalCrop = null;
+    renderModalCropButton();
     get('modalCropButton').hidden = !canCropImage(recipe.thumbnail_url);
     setOcr('edit', { busy: false });
     get('modalCategory').value = recipe.category;
@@ -688,7 +715,7 @@ export function createView(document, { origin = location.origin, objectUrls = UR
     });
     // 編集画面の3つのボタンは、アイコンで見分けられるようにする。
     for (const [id, icon] of [['ocrReadTextButton', 'scan'], ['modalCropButton', 'crop'], ['modalReadTextButton', 'scan'], ['modalOcrPickButton', 'imageAdd']]) get(id).prepend(makeIcon(document, icon));
-    listen(get('modalCropButton'), 'click', () => act(actions.openCrop));
+    listen(get('modalCropButton'), 'click', openModalCrop);
     const cropStage = get('cropStage');
     listen(cropStage, 'pointerdown', event => {
       if (!event.target.closest('#cropBox')) return;
@@ -712,7 +739,9 @@ export function createView(document, { origin = location.origin, objectUrls = UR
       renderCrop();
     });
     for (const type of ['pointerup', 'pointercancel']) listen(cropStage, type, () => { cropDrag = null; });
-    listen(get('cropApplyButton'), 'click', () => act(() => cropTarget === 'new' ? applyNewCrop({ ...cropRect }, { ...cropFocus }) : actions.applyCrop({ ...cropRect }, { ...cropFocus })));
+    listen(get('cropApplyButton'), 'click', () => act(() => cropTarget === 'new' ? applyNewCrop({ ...cropRect }, { ...cropFocus })
+      : cropTarget === 'editNew' ? applyModalCrop({ ...cropRect }, { ...cropFocus })
+        : actions.applyCrop({ ...cropRect }, { ...cropFocus })));
     listen(get('newCropButton'), 'click', openNewCrop);
     listen(get('cropResetButton'), 'click', () => { cropRect = { ...FULL_CROP }; cropFocus = { ...CENTER_POSITION }; renderCrop(); });
     listen(get('cropTabCrop'), 'click', () => setCropMode('crop'));
@@ -789,6 +818,6 @@ export function createView(document, { origin = location.origin, objectUrls = UR
   return {
     bind, setAuth, setBusy, renderList, notify, clearNew, clearFilters, applyShared, openCrop, closeCrop, setEditThumbnail, setOcr, insertMemoText, setCategories, openCategories, closeCategories, categoriesChanged, readCategories: categoryDraft, confirmCategoryRemoval, onDraftChange: listener => { draftListener = listener; }, openEdit, closeEdit, openDetail, closeDetail, renderDetail, reset, destroy, confirmDelete, confirmDiscard,
     readNew: () => ({ url: get('postUrl').value, memo: get('memo').value, category: get('category').value, file: files.main, crop: files.main && newCrop ? { rect: newCrop.rect, focus: newCrop.focus } : null, ocrFiles: ocrItems.map(item => item.file) }),
-    readEdit: () => ({ url: get('modalPostUrl').value, memo: get('modalMemo').value, category: get('modalCategory').value, file: files.modal })
+    readEdit: () => ({ url: get('modalPostUrl').value, memo: get('modalMemo').value, category: get('modalCategory').value, file: files.modal, crop: files.modal && modalCrop?.url === previews.modal ? { rect: modalCrop.rect, focus: modalCrop.focus } : null })
   };
 }

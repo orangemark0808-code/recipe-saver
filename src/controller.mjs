@@ -122,6 +122,13 @@ export function createController({ backend, view, ownerUid, ocr, now = () => new
     }
   }
 
+  // 保存前の画像で「トリミング／表示位置」を決めていれば、その範囲と位置をアップロードした画像のURLに入れる。
+  // 調整画面では元の画像全体を見て決めているので、自動の上下カットより手動の指定を優先する。
+  function withUploadCrop(thumbnail, crop) {
+    if (!thumbnail || !crop || !canCropImage(thumbnail)) return thumbnail;
+    const { rect, focus } = crop;
+    return withThumbPosition(isFullCrop(rect) ? originalImageUrl(thumbnail) : cropImageUrl(thumbnail, rect), focus);
+  }
   async function saveNew() {
     if (state.savingNew) return;
     const token = session;
@@ -135,13 +142,7 @@ export function createController({ backend, view, ownerUid, ocr, now = () => new
       const category = normalizeCategory(input.category, state.categories);
       state.savingNew = true;
       updateControls();
-      let thumbnail = file ? await backend.upload(file) : null;
-      // 新規登録時に「表示位置を調整」していれば、その範囲と位置をアップロードした画像のURLに入れる。
-      // 調整画面では元の画像全体を見て決めているので、自動の上下カットより手動の指定を優先する。
-      if (thumbnail && input.crop && canCropImage(thumbnail)) {
-        const { rect, focus } = input.crop;
-        thumbnail = withThumbPosition(isFullCrop(rect) ? originalImageUrl(thumbnail) : cropImageUrl(thumbnail, rect), focus);
-      }
+      const thumbnail = file ? withUploadCrop(await backend.upload(file), input.crop) : null;
       // アップロード中のログアウトなどで、別セッションへ処理を持ち越さない。
       if (!isCurrent(token)) return;
       const date = now();
@@ -222,7 +223,7 @@ export function createController({ backend, view, ownerUid, ocr, now = () => new
       updateControls();
       // トリミングだけ変えた場合は、画像は上げ直さず、切り抜き指定つきのURLに差し替える。
       if (!file && edit.cropUrl && edit.cropUrl !== edit.thumb) update.thumbnail_url = edit.cropUrl;
-      if (file) update.thumbnail_url = await backend.upload(file);
+      if (file) update.thumbnail_url = withUploadCrop(await backend.upload(file), input.crop);
       if (!isCurrent(token)) return;
       await backend.update(edit.id, update);
       if (!isCurrent(token)) return;
