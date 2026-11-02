@@ -688,3 +688,22 @@ test('新規登録で表示位置を調整した画像は、保存時にその�
   await t.controller.saveNew();
   assert.equal(t.calls.create.at(-1).thumbnail_url, 'https://res.cloudinary.com/demo/image/upload/c_crop,w_1.0,h_0.84,y_0.08/v1/new.jpg');
 });
+
+test('編集画面で新しく選んだ画像も、保存前に決めた範囲と位置を、アップロード後のURLに入れる', async () => {
+  const saved = 'https://res.cloudinary.com/demo/image/upload/v1/old.png';
+  const t = harness({
+    async list() { return [normalizeRecipe('A', { memo: 'a', post_url: 'https://www.instagram.com/p/a/', thumbnail_url: saved })]; },
+    async upload() { return 'https://res.cloudinary.com/demo/image/upload/c_crop,w_1.0,h_0.84,y_0.08/v1/new.jpg'; }
+  });
+  await t.ready();
+  const file = { type: 'image/png', size: 100 };
+  t.controller.openEdit('A');
+  t.screen.editInput = { ...t.screen.editInput, file, crop: { rect: { x: 0.1, y: 0.2, w: 0.5, h: 0.4 }, focus: { x: 0.5, y: 0.3 } } };
+  await t.controller.saveEdit();
+  assert.equal(t.calls.update.at(-1).data.thumbnail_url, 'https://res.cloudinary.com/demo/image/upload/c_crop,x_0.1000,y_0.2000,w_0.5000,h_0.4000/v1/new.jpg#pos=0.500,0.300');
+  // 調整しなかった場合は、これまでどおり自動の上下カットのまま。
+  t.controller.openEdit('A');
+  t.screen.editInput = { ...t.screen.editInput, file, crop: null };
+  await t.controller.saveEdit();
+  assert.equal(t.calls.update.at(-1).data.thumbnail_url, 'https://res.cloudinary.com/demo/image/upload/c_crop,w_1.0,h_0.84,y_0.08/v1/new.jpg');
+});
