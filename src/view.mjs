@@ -1,7 +1,8 @@
 import { makeIcon } from './icons.mjs';
+import { extractSharedUrl } from './share.mjs';
 import { CENTER_POSITION, DEFAULT_CATEGORIES, FULL_CROP, OCR_IMAGE_LIMIT, canCropImage, categoryColor, categoryLabel, dragCropRect, labelColors, nextPaletteColor, parseThumbPosition, originalImageUrl, safePostUrl, safeImageUrl, validateImage } from './core.mjs';
 
-export function createView(document, { origin = location.origin, objectUrls = URL, confirmDelete = () => confirm('この投稿を削除しますか？'), confirmDiscard = () => confirm('保存していない変更があります。変更を破棄しますか？'), confirmCategoryRemoval = ({ names, posts }) => confirm(`「${names.join('」「')}」を削除します。${posts ? `この${posts}件の投稿は「その他」（なければ未分類）として表示されます。` : ''}よろしいですか？`) } = {}) {
+export function createView(document, { origin = location.origin, objectUrls = URL, confirmDelete = () => confirm('この投稿を削除しますか？'), confirmDiscard = () => confirm('保存していない変更があります。変更を破棄しますか？'), readClipboard = () => navigator.clipboard.readText(), confirmCategoryRemoval = ({ names, posts }) => confirm(`「${names.join('」「')}」を削除します。${posts ? `この${posts}件の投稿は「その他」（なければ未分類）として表示されます。` : ''}よろしいですか？`) } = {}) {
   const get = id => document.getElementById(id);
   const cards = new Map();
   // main：新規投稿のカバー画像（保存する）、modal：編集中の画像。文字読み取り用の画像は ocrItems で持つ。
@@ -206,6 +207,17 @@ export function createView(document, { origin = location.origin, objectUrls = UR
   // 入力内容が変わったことを知らせる（下書きの自動保存用）。プログラムによる初期化では呼ばない。
   let draftListener = () => {};
   const touchDraft = () => draftListener();
+  // コピーしたURLをURL欄に入れる。Instagramの「リンクをコピー」は余計な文字が付くことがあるため、共有と同じくURLだけ取り出す。
+  async function pasteUrl() {
+    let text;
+    try { text = await readClipboard(); }
+    catch { notify('貼り付けできませんでした。URL欄を長押しして「貼り付け」を選んでください。', true); return; }
+    const url = extractSharedUrl({ text });
+    if (!url) { notify('コピーした内容にURLが見つかりませんでした。Instagramで「リンクをコピー」してからお試しください。', true); return; }
+    get('postUrl').value = url;
+    touchDraft();
+    notify('URLを貼り付けました。');
+  }
   // 文字の読み取りの進み具合を表示する。which は 'new'（新規投稿）か 'edit'（編集中）。
   const ocrIds = { new: [['readTextButton', 'ocrReadTextButton'], 'ocrStatus'], edit: [['modalReadTextButton', 'modalOcrPickButton'], 'modalOcrStatus'] };
   function setOcr(which, { busy, message = '' }) {
@@ -761,6 +773,7 @@ export function createView(document, { origin = location.origin, objectUrls = UR
     listen(get('categoryCancelButton'), 'click', actions.closeCategories);
     listen(get('categoryClose'), 'click', actions.closeCategories);
     listen(get('categoryModal'), 'cancel', event => { event.preventDefault(); actions.closeCategories(); });
+    listen(get('pasteUrlButton'), 'click', () => act(pasteUrl));
     listen(get('clearImageButton'), 'click', () => { clearImage(); touchDraft(); });
     listen(get('clearOcrImagesButton'), 'click', () => { clearOcrImages(); touchDraft(); });
     for (const [id, type] of [['postUrl', 'input'], ['memo', 'input'], ['category', 'change']]) listen(get(id), type, touchDraft);
