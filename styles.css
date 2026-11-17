@@ -32,6 +32,9 @@ fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 5px; }
 input[type="url"], input[type="text"], input[type="search"], textarea, select { display: block; width: 100%; min-height: 44px; padding: 9px 10px; font-size: 16px; line-height: 1.5; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); }
 input::placeholder, textarea::placeholder { color: var(--muted); opacity: .85; }
+.url-row { display: flex; gap: 8px; }
+.url-row input { flex: 1; min-width: 0; }
+.paste-button { flex: none; min-height: 44px; padding: 0 14px; border-color: var(--accent); color: var(--accent-dark); font-size: 13px; white-space: nowrap; }
 textarea { min-height: 88px; resize: vertical; }
 .upload-area, .modal-upload-area { display: block; width: 100%; padding: 10px; border: 1px dashed var(--border); background: var(--surface2); text-align: center; }
 .upload-area span, .modal-upload-area span { display: block; }
