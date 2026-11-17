@@ -208,14 +208,15 @@ export function createView(document, { origin = location.origin, objectUrls = UR
   let draftListener = () => {};
   const touchDraft = () => draftListener();
   // コピーしたURLをURL欄に入れる。Instagramの「リンクをコピー」は余計な文字が付くことがあるため、共有と同じくURLだけ取り出す。
-  async function pasteUrl() {
+  // inputId：入れる先のURL欄。新規投稿の欄なら下書きにも保存する（編集画面は値の比較で変更を検知する）。
+  async function pasteUrl(inputId) {
     let text;
     try { text = await readClipboard(); }
     catch { notify('貼り付けできませんでした。URL欄を長押しして「貼り付け」を選んでください。', true); return; }
     const url = extractSharedUrl({ text });
     if (!url) { notify('コピーした内容にURLが見つかりませんでした。Instagramで「リンクをコピー」してからお試しください。', true); return; }
-    get('postUrl').value = url;
-    touchDraft();
+    get(inputId).value = url;
+    if (inputId === 'postUrl') touchDraft();
     notify('URLを貼り付けました。');
   }
   // 文字の読み取りの進み具合を表示する。which は 'new'（新規投稿）か 'edit'（編集中）。
@@ -773,7 +774,8 @@ export function createView(document, { origin = location.origin, objectUrls = UR
     listen(get('categoryCancelButton'), 'click', actions.closeCategories);
     listen(get('categoryClose'), 'click', actions.closeCategories);
     listen(get('categoryModal'), 'cancel', event => { event.preventDefault(); actions.closeCategories(); });
-    listen(get('pasteUrlButton'), 'click', () => act(pasteUrl));
+    listen(get('pasteUrlButton'), 'click', () => act(() => pasteUrl('postUrl')));
+    listen(get('modalPasteUrlButton'), 'click', () => act(() => pasteUrl('modalPostUrl')));
     listen(get('clearImageButton'), 'click', () => { clearImage(); touchDraft(); });
     listen(get('clearOcrImagesButton'), 'click', () => { clearOcrImages(); touchDraft(); });
     for (const [id, type] of [['postUrl', 'input'], ['memo', 'input'], ['category', 'change']]) listen(get(id), type, touchDraft);
